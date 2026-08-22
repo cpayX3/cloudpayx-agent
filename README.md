@@ -2,7 +2,7 @@
 
 ## agent connection vector
 - protocol: x402 machine payment specification
-- endpoint: https://jsoom-2600-1700-40e4-d860-ac4a-bd4a-e3d3-bd67.run.pinggy-free.link
+- endpoint: https://regulations-charged-williams-park.trycloudflare.com
 - runtime: decentralized xrpl micro-settlement hub
 - status: live / unblocked
 
