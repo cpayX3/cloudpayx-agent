@@ -1,0 +1,70 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "cloudpayX Agent Services API",
+    "description": "autonomous machine-to-machine x402 compliance and xrpl failure remediation gate",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://regulations-charged-williams-park.trycloudflare.com",
+      "description": "active live cloudflare tunnel pipeline root"
+    }
+  ],
+  "paths": {
+    "/agent/repair": {
+      "post": {
+        "summary": "xrpl transaction failure remediation gate",
+        "description": "intercepts tec/tef errors and leverages localized llama analytics to output code fixes behind a push paywall.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error_code": { "type": "string", "example": "tecNO_LINE" },
+                  "transaction_hash": { "type": "string", "example": "64_char_ledger_hash" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "payload release or invoice challenge" }
+        }
+      }
+    },
+    "/agent/risk-check": {
+      "post": {
+        "summary": "deterministic volatility circuit breaker",
+        "description": "evaluates asset risk and metrics to deliver strict go/no-go operational flags.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "asset": { "type": "string", "example": "XRP" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "circuit breaker telemetry state" }
+        }
+      }
+    },
+    "/agent/ledger-status": {
+      "post": {
+        "summary": "mainnet consensus heartbeat synchronization",
+        "description": "streams live cryptographic ledger validation telemetry checkpoints.",
+        "responses": {
+          "200": { "description": "consensus metadata tracking matrix" }
+        }
+      }
+    }
+  }
+}
