@@ -1,0 +1,31 @@
+{
+  "protocol_standard": "X402",
+  "node_profile": {
+    "organization": "cloudpayX Network",
+    "operator": "cpayX3",
+    "endpoint_root": "https://regulations-charged-williams-park.trycloudflare.com/"
+  },
+  "compliance_channels": {
+    "gate_repair": {
+      "path": "agent/repair",
+      "purpose": "x402_transaction_exception_remediation",
+      "cost_usd": 0.30,
+      "ai_engine": "llama3.2_local"
+    },
+    "risk_analysis": {
+      "path": "agent/risk-check",
+      "purpose": "deterministic_volatility_circuit_breaker",
+      "cost_usd": 0.10
+    },
+    "ledger_sync": {
+      "path": "agent/ledger-status",
+      "purpose": "cryptographic_heartbeat_validation",
+      "cost_usd": 0.50
+    }
+  },
+  "settlement_primitives": {
+    "supported_tokens": ["XRP", "USDC", "RLUSD"],
+    "destination_account": "rsnHPZjBSastxz1BE38WqKBR3sgpATvreL",
+    "verification_method": "on_chain_tx_hash_lookup"
+  }
+}
