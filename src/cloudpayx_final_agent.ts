@@ -124,9 +124,9 @@ serve({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "llama3.2:1b",
-            prompt: "write a short lowercase tweet targeting stripe frozen accounts on xrpl endpoint https://regulations-charged-williams-park.trycloudflare.com/",
-            stream: false
+                      model: "llama3.2:1b",
+          prompt: `you are an expert xrpl autonomous network protocol repair node. analyze this transaction failure code: "${body.error_code || 'tecNO_LINE'}" and body data: "${JSON.stringify(body)}". output a brief, lowercase, machine-readable step-by-step resolution instruction guide that a web3 bot can use to programmatically bypass this error and re-submit the transaction successfully.`,
+          stream: false
           })
         });
         const finalPitch = (await aiResponse.json()).response.trim();
