@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://regulations-charged-williams-park.trycloudflare.com",
+      "url": "https://api.cloudpayxagent.xyz",
       "description": "active live cloudflare tunnel pipeline root"
     }
   ],

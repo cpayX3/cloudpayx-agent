@@ -1,26 +1,46 @@
 {
   "protocol": "x402",
-  "facilitator_target": "
-",
+  "facilitator_target": "https://t54.ai",
   "provider": {
     "developer": "cpayX3",
     "github_repo": "https://github.com/cpayX3/cloudpayx-agent.git",
-    "endpoint_root": "https://regulations-charged-williams-park.trycloudflare.com”
+    "endpoint_root": "https://api.cloudpayxagent.xyz"
   },
   "endpoints": [
     {
+      "path": "agent/arbitrage-check",
+      "pricing": {
+        "amount": "0.02",
+        "currency": "USD",
+        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+      },
+      "capability": "xrpl_arbitrage_optimization"
+    },
+    {
       "path": "agent/repair",
-      "pricing": { "amount": "0.30", "currency": "USD", "settlement_assets": ["XRP", "USDC", "RLUSD"] },
+      "pricing": {
+        "amount": "0.30",
+        "currency": "USD",
+        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+      },
       "capability": "x402_exception_triage"
     },
     {
       "path": "agent/risk-check",
-      "pricing": { "amount": "0.10", "currency": "USD", "settlement_assets": ["XRP", "USDC", "RLUSD"] },
+      "pricing": {
+        "amount": "0.10",
+        "currency": "USD",
+        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+      },
       "capability": "deterministic_circuit_breaker"
     },
     {
       "path": "agent/ledger-status",
-      "pricing": { "amount": "0.50", "currency": "USD", "settlement_assets": ["XRP", "USDC", "RLUSD"] },
+      "pricing": {
+        "amount": "0.50",
+        "currency": "USD",
+        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+      },
       "capability": "consensus_telemetry_stream"
     }
   ],

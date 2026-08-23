@@ -3,7 +3,7 @@
 
 this production infrastructure node provides autonomous agent frameworks (like elizaos) and algorithmic trading networks with real-time error triage, risk metrics, and high-frequency arbitrage routing telemetry under a strict on-chain micro-paywall structure.
 
-- **active base pipeline url:** https://regulations-charged-williams-park.trycloudflare.com
+- **active base pipeline url:** https://api.cloudpayxagent.xyz
 - **protocol compliance standard:** x402 native push invoicing specification (v2)
 - **settlement network:** xrp ledger mainnet (xrpl:0)
 - **accepted payment tokens:** xrp, usdc, rlusd
