@@ -2,43 +2,80 @@
   "openapi": "3.0.3",
   "info": {
     "title": "cloudpayX Agent Services API",
-    "description": "autonomous machine-to-machine x402 compliance and xrpl failure remediation gate",
-    "version": "1.0.0"
+    "description": "Machine-to-machine XRPL services protected by x402 v2 payments.",
+    "version": "1.1.0",
+    "contact": {
+      "url": "https://api.cloudpayxagent.xyz"
+    },
+    "x-guidance": "Call GET /.well-known/x402 or inspect this OpenAPI document to discover paid resources. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements. Use network xrpl:0 and retry with a valid PAYMENT-SIGNATURE."
   },
   "servers": [
     {
       "url": "https://api.cloudpayxagent.xyz",
-      "description": "active live cloudflare tunnel pipeline root"
+      "description": "cloudpayX Agent production API"
     }
   ],
   "paths": {
-    "/agent/repair": {
+    "/agent/arbitrage-check": {
       "post": {
-        "summary": "xrpl transaction failure remediation gate",
-        "description": "intercepts tec/tef errors and leverages localized llama analytics to output code fixes behind a push paywall.",
+        "summary": "XRPL arbitrage and route optimization",
+        "description": "Provides machine-consumable XRPL route and execution intelligence for autonomous trading agents.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "from",
+                  "to",
+                  "amount"
+                ],
                 "properties": {
-                  "error_code": { "type": "string", "example": "tecNO_LINE" },
-                  "transaction_hash": { "type": "string", "example": "64_char_ledger_hash" }
+                  "from": {
+                    "type": "string",
+                    "example": "XRP"
+                  },
+                  "to": {
+                    "type": "string",
+                    "example": "RLUSD"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "example": 100
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "payload release or invoice challenge" }
+          "200": {
+            "description": "Paid arbitrage optimization response"
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          }
+        },
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.01",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
         }
       }
     },
     "/agent/risk-check": {
       "post": {
-        "summary": "deterministic volatility circuit breaker",
-        "description": "evaluates asset risk and metrics to deliver strict go/no-go operational flags.",
+        "summary": "XRPL risk assessment",
+        "description": "Low-latency risk and circuit-breaker signal for autonomous financial workflows.",
         "requestBody": {
           "required": true,
           "content": {
@@ -46,23 +83,180 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "asset": { "type": "string", "example": "XRP" }
+                  "asset": {
+                    "type": "string",
+                    "example": "XRP"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "circuit breaker telemetry state" }
+          "200": {
+            "description": "Paid risk assessment response"
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          }
+        },
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.02",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
+        }
+      }
+    },
+    "/agent/repair": {
+      "post": {
+        "summary": "XRPL transaction failure diagnostics",
+        "description": "Provides machine-readable diagnostics and recovery guidance for XRPL transaction execution failures.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error_code": {
+                    "type": "string",
+                    "example": "tecNO_LINE"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paid transaction diagnostic response"
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          }
+        },
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.10",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
         }
       }
     },
     "/agent/ledger-status": {
       "post": {
-        "summary": "mainnet consensus heartbeat synchronization",
-        "description": "streams live cryptographic ledger validation telemetry checkpoints.",
+        "summary": "XRPL ledger and consensus telemetry",
+        "description": "Provides machine-readable XRPL ledger and consensus telemetry.",
         "responses": {
-          "200": { "description": "consensus metadata tracking matrix" }
+          "200": {
+            "description": "Paid ledger telemetry response"
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          }
+        },
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.005",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/x402": {
+      "get": {
+        "summary": "x402 discovery catalog",
+        "description": "Machine-readable discovery metadata for cloudpayX paid resources.",
+        "responses": {
+          "200": {
+            "description": "x402 resource catalog"
+          }
+        },
+        "security": []
+      }
+    },
+    "/agent/token-analysis": {
+      "post": {
+        "summary": "XRPL token and issuer analysis",
+        "description": "Returns machine-readable XRPL-native token, issuer and network signals for autonomous agents.",
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.005",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "asset"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "example": "XRP"
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "description": "Required for issued XRPL currencies.",
+                    "example": "r..."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paid token analysis response"
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          }
         }
       }
     }
