@@ -3,7 +3,7 @@
   "info": {
     "title": "cloudpayX Agent Services API",
     "description": "Machine-to-machine XRPL services protected by x402 v2 payments.",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "contact": {
       "url": "https://api.cloudpayxagent.xyz"
     },
@@ -212,7 +212,7 @@
     "/agent/token-analysis": {
       "post": {
         "summary": "XRPL token execution intelligence",
-        "description": "Analyzes native XRP or classic XRPL-issued fungible assets using validated XRPL mainnet data. For issued assets, CloudPayX inspects issuer configuration, trustlines, both sides of the XRP order book, AMM availability and reserves, visible market depth, spread, requested-trade fillability, estimated order-book slippage, and network state. Returns a deterministic PROCEED, REVIEW, or ABORT signal with machine-readable flags.",
+        "description": "Analyzes native XRP or classic XRPL-issued fungible assets using validated XRPL mainnet data. For issued assets, CloudPayX inspects issuer configuration, trustlines, both sides of the XRP order book, AMM availability and reserves, visible market depth, spread, requested-trade fillability, estimated order-book slippage, and network state. Returns deterministic PROCEED, REVIEW, or ABORT signals. REVIEW is triggered by degraded execution conditions such as spread above 5% or slippage above 3%; ABORT is triggered by hard conditions including spread above 20%, slippage above 15%, global freeze, no visible liquidity, or insufficient book depth without AMM support.",
         "security": [],
         "x-payment-info": {
           "price": {

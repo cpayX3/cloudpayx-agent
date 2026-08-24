@@ -610,7 +610,7 @@ Bun.serve({
             return new Response(JSON.stringify({
               success: true,
               service: "token_analysis",
-              version: "2.0",
+              version: "2.1",
               asset: "XRP",
               asset_type: "native",
               network: "xrpl:0",
@@ -950,6 +950,20 @@ Bun.serve({
 
           const signalFlags: string[] = [];
 
+          // -------------------------------------------------------
+          // V2.1 RISK SEVERITY
+          //
+          // REVIEW thresholds identify degraded execution.
+          // ABORT thresholds identify conditions that are generally
+          // unsuitable for an autonomous trade at the requested size.
+          // -------------------------------------------------------
+
+          const REVIEW_SPREAD_THRESHOLD = 0.05;   // 5%
+          const ABORT_SPREAD_THRESHOLD = 0.20;    // 20%
+
+          const REVIEW_SLIPPAGE_THRESHOLD = 0.03; // 3%
+          const ABORT_SLIPPAGE_THRESHOLD = 0.15;  // 15%
+
           if (!networkHealthy) {
             signalFlags.push("NETWORK_CONDITIONS");
           }
@@ -968,27 +982,55 @@ Bun.serve({
 
           if (
             spreadPct !== null &&
-            spreadPct > 0.05
+            spreadPct > REVIEW_SPREAD_THRESHOLD
           ) {
             signalFlags.push("WIDE_SPREAD");
           }
 
           if (
+            spreadPct !== null &&
+            spreadPct > ABORT_SPREAD_THRESHOLD
+          ) {
+            signalFlags.push("EXTREME_SPREAD");
+          }
+
+          if (
             estimatedSlippagePct !== null &&
-            estimatedSlippagePct > 0.03
+            estimatedSlippagePct > REVIEW_SLIPPAGE_THRESHOLD
           ) {
             signalFlags.push("HIGH_SLIPPAGE");
           }
 
+          if (
+            estimatedSlippagePct !== null &&
+            estimatedSlippagePct > ABORT_SLIPPAGE_THRESHOLD
+          ) {
+            signalFlags.push("EXTREME_SLIPPAGE");
+          }
+
           if (!bookCanFillTrade && !ammAvailable) {
             signalFlags.push("INSUFFICIENT_BOOK_DEPTH");
+          } else if (!bookCanFillTrade && ammAvailable) {
+            // Our current slippage simulator measures visible DEX book
+            // execution separately from AMM liquidity. Do not claim the
+            // combined route is impossible when an AMM exists.
+            signalFlags.push("ORDER_BOOK_INCOMPLETE");
           }
+
+          const abortReasons = [
+            "GLOBAL_FREEZE",
+            "NO_VISIBLE_LIQUIDITY",
+            "EXTREME_SPREAD",
+            "EXTREME_SLIPPAGE",
+            "INSUFFICIENT_BOOK_DEPTH"
+          ];
 
           let action: "PROCEED" | "REVIEW" | "ABORT" = "PROCEED";
 
           if (
-            signalFlags.includes("GLOBAL_FREEZE") ||
-            signalFlags.includes("NO_VISIBLE_LIQUIDITY")
+            signalFlags.some(flag =>
+              abortReasons.includes(flag)
+            )
           ) {
             action = "ABORT";
           } else if (signalFlags.length > 0) {
@@ -998,7 +1040,7 @@ Bun.serve({
           return new Response(JSON.stringify({
             success: true,
             service: "token_analysis",
-            version: "2.0",
+            version: "2.1",
 
             asset,
             ledger_currency: ledgerCurrency,
@@ -1107,8 +1149,10 @@ Bun.serve({
               action,
               flags: signalFlags,
               rules: {
-                wide_spread_threshold: 0.05,
-                high_slippage_threshold: 0.03,
+                review_spread_threshold: REVIEW_SPREAD_THRESHOLD,
+                abort_spread_threshold: ABORT_SPREAD_THRESHOLD,
+                review_slippage_threshold: REVIEW_SLIPPAGE_THRESHOLD,
+                abort_slippage_threshold: ABORT_SLIPPAGE_THRESHOLD,
                 ledger_age_max_seconds: 10,
                 load_factor_max: 2
               }
@@ -1139,7 +1183,7 @@ Bun.serve({
           return new Response(JSON.stringify({
             success: false,
             service: "token_analysis",
-            version: "2.0",
+            version: "2.1",
             error: "xrpl_analysis_unavailable",
             timestamp: new Date().toISOString()
           }), {
