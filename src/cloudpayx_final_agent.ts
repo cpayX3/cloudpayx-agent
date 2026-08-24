@@ -149,7 +149,7 @@ Bun.serve({
           resource: "https://api.cloudpayxagent.xyz/agent/token-analysis",
           type: "http",
           method: "POST",
-          description: "XRPL-native token and issuer analysis for autonomous agents.",
+          description: "XRPL token execution intelligence: issuer risk, DEX and AMM liquidity, market depth, spread, trade-size slippage, network conditions, and PROCEED/REVIEW/ABORT signals.",
           input: {
             contentType: "application/json",
             example: {
@@ -505,45 +505,142 @@ Bun.serve({
       if (url.pathname === "/agent/token-analysis") {
         const asset = String(body.asset || "XRP").trim().toUpperCase();
         const issuer = body.issuer ? String(body.issuer).trim() : null;
+        const tradeSizeXrpRaw = Number(body.trade_size_xrp ?? 100);
+        const tradeSizeXrp =
+          Number.isFinite(tradeSizeXrpRaw) && tradeSizeXrpRaw > 0
+            ? tradeSizeXrpRaw
+            : 100;
+
+        // Convert human-readable XRPL token symbols into the ledger's
+        // required currency representation automatically.
+        //
+        // Examples:
+        // XRP   -> XRP
+        // XOX   -> XOX
+        // RLUSD -> 524C555344000000000000000000000000000000
+        // Existing 40-char hex codes are accepted as-is.
+        const normalizeXRPLCurrency = (symbol: string): string => {
+          const value = String(symbol || "").trim();
+
+          if (!value) {
+            throw new Error("currency_required");
+          }
+
+          const upper = value.toUpperCase();
+
+          if (upper === "XRP") {
+            return "XRP";
+          }
+
+          if (/^[A-F0-9]{40}$/.test(upper)) {
+            return upper;
+          }
+
+          if (/^[A-Z0-9?!@#$%^&*<>(){}\[\]|]{3}$/.test(upper)) {
+            return upper;
+          }
+
+          const bytes = Buffer.from(value, "utf8");
+
+          if (bytes.length > 20) {
+            throw new Error("currency_code_exceeds_20_bytes");
+          }
+
+          return bytes
+            .toString("hex")
+            .toUpperCase()
+            .padEnd(40, "0");
+        };
+
+        const rpcCall = async (method: string, params: Record<string, any>) => {
+          const response = await fetch("https://s1.ripple.com:51234/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              method,
+              params: [params]
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`xrpl_http_${response.status}`);
+          }
+
+          return await response.json() as any;
+        };
+
+        const amountToNumber = (amount: any): number => {
+          if (typeof amount === "string") {
+            // Native XRP amounts are represented as drops.
+            return Number(amount) / 1_000_000;
+          }
+
+          if (
+            amount &&
+            typeof amount === "object" &&
+            amount.value !== undefined
+          ) {
+            return Number(amount.value);
+          }
+
+          return 0;
+        };
 
         try {
+          // -------------------------------------------------------
+          // NETWORK STATE
+          // -------------------------------------------------------
+
+          const serverRpc = await rpcCall("server_info", {});
+          const info = serverRpc?.result?.info || {};
+          const validated = info?.validated_ledger || {};
+
+          const ledgerAge = Number(validated?.age ?? 999);
+          const loadFactor = Number(info?.load_factor ?? 1);
+
+          const networkHealthy =
+            serverRpc?.result?.status === "success" &&
+            ledgerAge <= 10 &&
+            loadFactor <= 2;
+
+          // XRP is native and has no issuer.
+          // Full XRP market analysis will be added when a quote asset
+          // is supplied; for now return factual network conditions.
           if (asset === "XRP") {
-            const rpcResponse = await fetch("https://s1.ripple.com:51234/", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                method: "server_info",
-                params: [{}]
-              })
-            });
-
-            const rpc: any = await rpcResponse.json();
-            const info = rpc?.result?.info || {};
-            const validated = info?.validated_ledger || {};
-
-            const age = Number(validated?.age ?? 999);
-            const loadFactor = Number(info?.load_factor ?? 1);
-
-            const networkHealthy =
-              rpc?.result?.status === "success" &&
-              age <= 10 &&
-              loadFactor <= 2;
-
             return new Response(JSON.stringify({
               success: true,
               service: "token_analysis",
+              version: "2.0",
               asset: "XRP",
-              token_type: "native",
+              asset_type: "native",
               network: "xrpl:0",
-              ledger_index: validated?.seq ?? null,
-              validated_ledger_age_seconds: age,
-              load_factor: loadFactor,
-              base_fee_xrp: validated?.base_fee_xrp ?? null,
-              reserve_base_xrp: validated?.reserve_base_xrp ?? null,
-              reserve_inc_xrp: validated?.reserve_inc_xrp ?? null,
-              network_health: networkHealthy ? "HEALTHY" : "CAUTION",
-              operational_signal: networkHealthy ? "PROCEED" : "REVIEW",
-              source: "XRPL mainnet server_info",
+
+              issuer: null,
+
+              market: {
+                pair: null,
+                note: "Supply an issued asset + issuer for DEX/AMM market analysis."
+              },
+
+              network_state: {
+                health: networkHealthy ? "HEALTHY" : "CAUTION",
+                ledger_index: validated?.seq ?? null,
+                ledger_age_seconds: ledgerAge,
+                load_factor: loadFactor,
+                base_fee_xrp: validated?.base_fee_xrp ?? null,
+                reserve_base_xrp: validated?.reserve_base_xrp ?? null,
+                reserve_inc_xrp: validated?.reserve_inc_xrp ?? null
+              },
+
+              signal: {
+                action: networkHealthy ? "PROCEED" : "REVIEW",
+                flags: networkHealthy ? [] : ["NETWORK_CONDITIONS"]
+              },
+
+              sources: [
+                "XRPL validated server_info"
+              ],
+
               timestamp: new Date().toISOString()
             }), {
               headers: { "Content-Type": "application/json" }
@@ -557,7 +654,8 @@ Bun.serve({
               message: "Issued XRPL tokens require an issuer address.",
               example: {
                 asset: "USD",
-                issuer: "r..."
+                issuer: "r...",
+                trade_size_xrp: 100
               }
             }), {
               status: 400,
@@ -565,69 +663,490 @@ Bun.serve({
             });
           }
 
-          const rpcResponse = await fetch("https://s1.ripple.com:51234/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              method: "account_info",
-              params: [{
-                account: issuer,
-                ledger_index: "validated"
-              }]
-            })
+          const ledgerCurrency = normalizeXRPLCurrency(asset);
+
+          // -------------------------------------------------------
+          // ISSUER INTELLIGENCE
+          // -------------------------------------------------------
+
+          const issuerRpc = await rpcCall("account_info", {
+            account: issuer,
+            ledger_index: "validated"
           });
 
-          const rpc: any = await rpcResponse.json();
-
-          if (rpc?.result?.status !== "success") {
+          if (issuerRpc?.result?.status !== "success") {
             return new Response(JSON.stringify({
               success: false,
               service: "token_analysis",
               asset,
               issuer,
               issuer_status: "NOT_VALIDATED",
-              error: rpc?.result?.error || "issuer_lookup_failed",
+              error:
+                issuerRpc?.result?.error ||
+                issuerRpc?.result?.error_message ||
+                "issuer_lookup_failed",
               timestamp: new Date().toISOString()
             }), {
               headers: { "Content-Type": "application/json" }
             });
           }
 
-          const account = rpc.result.account_data || {};
-          const flags = rpc.result.account_flags || {};
+          const account = issuerRpc.result.account_data || {};
+          const flags = issuerRpc.result.account_flags || {};
+
+          // Trustlines are paginated. We intentionally sample one page
+          // rather than claiming an exact total when more pages exist.
+          let trustlineSampleCount = 0;
+          let trustlinesTruncated = false;
+
+          try {
+            const linesRpc = await rpcCall("account_lines", {
+              account: issuer,
+              ledger_index: "validated",
+              limit: 400
+            });
+
+            const lines = Array.isArray(linesRpc?.result?.lines)
+              ? linesRpc.result.lines
+              : [];
+
+            trustlineSampleCount = lines.filter(
+              (line: any) =>
+                String(line.currency || "").toUpperCase() === ledgerCurrency
+            ).length;
+
+            trustlinesTruncated = Boolean(linesRpc?.result?.marker);
+          } catch {
+            // Issuer analysis can continue even if trustline sampling fails.
+          }
+
+          // -------------------------------------------------------
+          // DEX ORDER BOOKS: TOKEN <-> XRP
+          // -------------------------------------------------------
+
+          const tokenAmount = {
+            currency: ledgerCurrency,
+            issuer
+          };
+
+          const xrpAmount = {
+            currency: "XRP"
+          };
+
+          let tokenForXrpOffers: any[] = [];
+          let xrpForTokenOffers: any[] = [];
+
+          try {
+            const [sellTokenRpc, buyTokenRpc] = await Promise.all([
+              rpcCall("book_offers", {
+                ledger_index: "validated",
+                taker_gets: tokenAmount,
+                taker_pays: xrpAmount,
+                limit: 50
+              }),
+              rpcCall("book_offers", {
+                ledger_index: "validated",
+                taker_gets: xrpAmount,
+                taker_pays: tokenAmount,
+                limit: 50
+              })
+            ]);
+
+            tokenForXrpOffers = Array.isArray(
+              sellTokenRpc?.result?.offers
+            )
+              ? sellTokenRpc.result.offers
+              : [];
+
+            xrpForTokenOffers = Array.isArray(
+              buyTokenRpc?.result?.offers
+            )
+              ? buyTokenRpc.result.offers
+              : [];
+          } catch {
+            // Continue and report no visible book liquidity.
+          }
+
+          const normalizedTokenPrices = tokenForXrpOffers
+            .map((offer: any) => {
+              const token = amountToNumber(
+                offer.taker_gets_funded ?? offer.TakerGets
+              );
+
+              const xrp = amountToNumber(
+                offer.taker_pays_funded ?? offer.TakerPays
+              );
+
+              if (token <= 0 || xrp <= 0) return null;
+
+              return {
+                token,
+                xrp,
+                xrp_per_token: xrp / token
+              };
+            })
+            .filter(Boolean) as Array<{
+              token: number;
+              xrp: number;
+              xrp_per_token: number;
+            }>;
+
+          const normalizedReversePrices = xrpForTokenOffers
+            .map((offer: any) => {
+              const xrp = amountToNumber(
+                offer.taker_gets_funded ?? offer.TakerGets
+              );
+
+              const token = amountToNumber(
+                offer.taker_pays_funded ?? offer.TakerPays
+              );
+
+              if (token <= 0 || xrp <= 0) return null;
+
+              return {
+                token,
+                xrp,
+                xrp_per_token: xrp / token
+              };
+            })
+            .filter(Boolean) as Array<{
+              token: number;
+              xrp: number;
+              xrp_per_token: number;
+            }>;
+
+          const bestAsk =
+            normalizedTokenPrices.length > 0
+              ? normalizedTokenPrices[0].xrp_per_token
+              : null;
+
+          const bestBid =
+            normalizedReversePrices.length > 0
+              ? normalizedReversePrices[0].xrp_per_token
+              : null;
+
+          let spreadPct: number | null = null;
+
+          if (
+            bestAsk !== null &&
+            bestBid !== null &&
+            bestAsk > 0 &&
+            bestBid > 0
+          ) {
+            const midpoint = (bestAsk + bestBid) / 2;
+            spreadPct =
+              midpoint > 0
+                ? Math.abs(bestAsk - bestBid) / midpoint
+                : null;
+          }
+
+          const visibleTokenDepthXrp =
+            normalizedTokenPrices.reduce(
+              (sum, offer) => sum + offer.xrp,
+              0
+            );
+
+          const visibleReverseDepthXrp =
+            normalizedReversePrices.reduce(
+              (sum, offer) => sum + offer.xrp,
+              0
+            );
+
+          // -------------------------------------------------------
+          // TRADE-SIZE SLIPPAGE ESTIMATE
+          //
+          // Simulates spending XRP against visible book offers.
+          // This is DEX-order-book only; AMM liquidity is reported
+          // separately and not silently mixed into this estimate.
+          // -------------------------------------------------------
+
+          let remainingXrp = tradeSizeXrp;
+          let tokensAcquired = 0;
+          let xrpConsumed = 0;
+          let firstPrice: number | null = null;
+
+          for (const offer of normalizedTokenPrices) {
+            if (remainingXrp <= 0) break;
+
+            if (firstPrice === null) {
+              firstPrice = offer.xrp_per_token;
+            }
+
+            const spend = Math.min(remainingXrp, offer.xrp);
+
+            const tokenReceived =
+              offer.xrp_per_token > 0
+                ? spend / offer.xrp_per_token
+                : 0;
+
+            xrpConsumed += spend;
+            tokensAcquired += tokenReceived;
+            remainingXrp -= spend;
+          }
+
+          const averageExecutionPrice =
+            tokensAcquired > 0
+              ? xrpConsumed / tokensAcquired
+              : null;
+
+          const estimatedSlippagePct =
+            firstPrice !== null &&
+            averageExecutionPrice !== null &&
+            firstPrice > 0
+              ? Math.max(
+                  0,
+                  (averageExecutionPrice - firstPrice) / firstPrice
+                )
+              : null;
+
+          const bookCanFillTrade =
+            remainingXrp <= 0 && tradeSizeXrp > 0;
+
+          // -------------------------------------------------------
+          // AMM
+          // -------------------------------------------------------
+
+          let ammAvailable = false;
+          let ammAccount: string | null = null;
+          let ammTradingFee: number | null = null;
+          let ammXrpLiquidity: number | null = null;
+          let ammTokenLiquidity: number | null = null;
+
+          try {
+            const ammRpc = await rpcCall("amm_info", {
+              asset: xrpAmount,
+              asset2: tokenAmount,
+              ledger_index: "validated"
+            });
+
+            const amm = ammRpc?.result?.amm;
+
+            if (amm) {
+              ammAvailable = true;
+              ammAccount = amm.account ?? null;
+              ammTradingFee =
+                amm.trading_fee !== undefined
+                  ? Number(amm.trading_fee)
+                  : null;
+
+              const a1 = amm.amount;
+              const a2 = amm.amount2;
+
+              if (typeof a1 === "string") {
+                ammXrpLiquidity = amountToNumber(a1);
+                ammTokenLiquidity = amountToNumber(a2);
+              } else if (typeof a2 === "string") {
+                ammXrpLiquidity = amountToNumber(a2);
+                ammTokenLiquidity = amountToNumber(a1);
+              }
+            }
+          } catch {
+            // No AMM is a valid market condition, not an API failure.
+          }
+
+          // -------------------------------------------------------
+          // DETERMINISTIC SIGNAL
+          // -------------------------------------------------------
+
+          const signalFlags: string[] = [];
+
+          if (!networkHealthy) {
+            signalFlags.push("NETWORK_CONDITIONS");
+          }
+
+          if (flags.globalFreeze === true) {
+            signalFlags.push("GLOBAL_FREEZE");
+          }
+
+          if (
+            tokenForXrpOffers.length === 0 &&
+            xrpForTokenOffers.length === 0 &&
+            !ammAvailable
+          ) {
+            signalFlags.push("NO_VISIBLE_LIQUIDITY");
+          }
+
+          if (
+            spreadPct !== null &&
+            spreadPct > 0.05
+          ) {
+            signalFlags.push("WIDE_SPREAD");
+          }
+
+          if (
+            estimatedSlippagePct !== null &&
+            estimatedSlippagePct > 0.03
+          ) {
+            signalFlags.push("HIGH_SLIPPAGE");
+          }
+
+          if (!bookCanFillTrade && !ammAvailable) {
+            signalFlags.push("INSUFFICIENT_BOOK_DEPTH");
+          }
+
+          let action: "PROCEED" | "REVIEW" | "ABORT" = "PROCEED";
+
+          if (
+            signalFlags.includes("GLOBAL_FREEZE") ||
+            signalFlags.includes("NO_VISIBLE_LIQUIDITY")
+          ) {
+            action = "ABORT";
+          } else if (signalFlags.length > 0) {
+            action = "REVIEW";
+          }
 
           return new Response(JSON.stringify({
             success: true,
             service: "token_analysis",
+            version: "2.0",
+
             asset,
-            token_type: "issued_currency",
+            ledger_currency: ledgerCurrency,
+            asset_type: "issued_currency",
             network: "xrpl:0",
-            issuer,
-            issuer_status: "VALIDATED",
-            issuer_owner_count: account.OwnerCount ?? null,
-            issuer_sequence: account.Sequence ?? null,
-            require_authorization: flags.requireAuthorization ?? false,
-            global_freeze: flags.globalFreeze ?? false,
-            no_freeze: flags.noFreeze ?? false,
-            default_ripple: flags.defaultRipple ?? false,
-            clawback_enabled: flags.allowTrustLineClawback ?? false,
-            operational_signal:
-              flags.globalFreeze === true ? "CAUTION" : "PROCEED",
-            source: "XRPL validated account_info",
+            trade_size_xrp: tradeSizeXrp,
+
+            issuer: {
+              address: issuer,
+              status: "VALIDATED",
+              owner_count: account.OwnerCount ?? null,
+              sequence: account.Sequence ?? null,
+              flags: {
+                require_authorization:
+                  flags.requireAuthorization ?? false,
+                global_freeze:
+                  flags.globalFreeze ?? false,
+                no_freeze:
+                  flags.noFreeze ?? false,
+                default_ripple:
+                  flags.defaultRipple ?? false,
+                clawback_enabled:
+                  flags.allowTrustLineClawback ?? false
+              },
+              trustlines: {
+                matching_currency_sample: trustlineSampleCount,
+                truncated: trustlinesTruncated,
+                note: trustlinesTruncated
+                  ? "Sample only; issuer has additional paginated trustlines."
+                  : "No additional pagination marker returned."
+              }
+            },
+
+            liquidity: {
+              order_book: {
+                token_to_xrp_offer_count:
+                  tokenForXrpOffers.length,
+                xrp_to_token_offer_count:
+                  xrpForTokenOffers.length,
+                visible_token_side_depth_xrp:
+                  Number(visibleTokenDepthXrp.toFixed(6)),
+                visible_reverse_side_depth_xrp:
+                  Number(visibleReverseDepthXrp.toFixed(6)),
+                can_fill_requested_trade:
+                  bookCanFillTrade
+              },
+
+              amm: {
+                available: ammAvailable,
+                account: ammAccount,
+                trading_fee: ammTradingFee,
+                xrp_liquidity:
+                  ammXrpLiquidity !== null
+                    ? Number(ammXrpLiquidity.toFixed(6))
+                    : null,
+                token_liquidity:
+                  ammTokenLiquidity !== null
+                    ? Number(ammTokenLiquidity.toFixed(8))
+                    : null
+              }
+            },
+
+            market: {
+              pair: `${asset}/XRP`,
+              best_bid_xrp_per_token: bestBid,
+              best_ask_xrp_per_token: bestAsk,
+              spread:
+                spreadPct !== null
+                  ? Number(spreadPct.toFixed(8))
+                  : null,
+
+              requested_trade_size_xrp: tradeSizeXrp,
+
+              order_book_execution: {
+                xrp_consumed:
+                  Number(xrpConsumed.toFixed(6)),
+                tokens_estimated:
+                  Number(tokensAcquired.toFixed(8)),
+                average_execution_price_xrp_per_token:
+                  averageExecutionPrice !== null
+                    ? Number(averageExecutionPrice.toFixed(12))
+                    : null,
+                estimated_slippage:
+                  estimatedSlippagePct !== null
+                    ? Number(estimatedSlippagePct.toFixed(8))
+                    : null,
+                complete_fill:
+                  bookCanFillTrade
+              }
+            },
+
+            network_state: {
+              health:
+                networkHealthy ? "HEALTHY" : "CAUTION",
+              ledger_index:
+                validated?.seq ?? null,
+              ledger_age_seconds:
+                ledgerAge,
+              load_factor:
+                loadFactor,
+              base_fee_xrp:
+                validated?.base_fee_xrp ?? null
+            },
+
+            signal: {
+              action,
+              flags: signalFlags,
+              rules: {
+                wide_spread_threshold: 0.05,
+                high_slippage_threshold: 0.03,
+                ledger_age_max_seconds: 10,
+                load_factor_max: 2
+              }
+            },
+
+            sources: [
+              "XRPL validated server_info",
+              "XRPL validated account_info",
+              "XRPL validated account_lines",
+              "XRPL validated book_offers",
+              "XRPL validated amm_info"
+            ],
+
             timestamp: new Date().toISOString()
           }), {
-            headers: { "Content-Type": "application/json" }
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store"
+            }
           });
 
         } catch (analysisError) {
+          console.error(
+            "token-analysis error:",
+            analysisError
+          );
+
           return new Response(JSON.stringify({
             success: false,
             service: "token_analysis",
+            version: "2.0",
             error: "xrpl_analysis_unavailable",
             timestamp: new Date().toISOString()
           }), {
             status: 503,
-            headers: { "Content-Type": "application/json" }
+            headers: {
+              "Content-Type": "application/json"
+            }
           });
         }
       }

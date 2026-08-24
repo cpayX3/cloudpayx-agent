@@ -1,7 +1,28 @@
-node_modules/
+# Secrets / local environment
 .env
+.env.*
+!.env.example
+
+# Wallet / payment test tooling
+src/create_x402_buyer_wallet.ts
+src/test_x402_buyer.ts
+src/test_token_analysis_buyer.ts
+
+# Local backups
+*.pre_t54.ts
+*.pre_t54_clean.ts
+*.pre_token_analysis.ts
+*.pre_token_analysis.json
+
+# Logs / temp
+*.log
+*.txt
+.DS_Store
+tmp/
 dist/
-.eliza/
-*.tsbuildinfo
-*.save
-*.tsbun
+node_modules/
+
+# Local generated executables / scratch
+src/cloudpayx_final_agent
+fix.js
+make_plugin.js
