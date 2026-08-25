@@ -210,7 +210,8 @@ Bun.serve({
             status: 404,
             headers: {
               "Content-Type": "application/json",
-              "Cache-Control": "no-store"
+              "Cache-Control": "no-store",
+              "Access-Control-Allow-Origin": "*"
             }
           }
         );
@@ -223,7 +224,8 @@ Bun.serve({
           headers: {
             "Content-Type": "application/json",
             "Cache-Control": "public, max-age=300",
-            "X-Robots-Tag": "noindex, nofollow"
+            "X-Robots-Tag": "noindex, nofollow",
+            "Access-Control-Allow-Origin": "*"
           }
         }
       );
