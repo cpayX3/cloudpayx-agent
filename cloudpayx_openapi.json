@@ -2,12 +2,12 @@
   "openapi": "3.0.3",
   "info": {
     "title": "cloudpayX Agent Services API",
-    "description": "Machine-to-machine XRPL services protected by x402 v2 payments.",
-    "version": "1.2.1",
+    "description": "Paid XRPL machine-intelligence services protected by x402 v2 payments on XRPL mainnet.",
+    "version": "2.0",
     "contact": {
       "url": "https://api.cloudpayxagent.xyz"
     },
-    "x-guidance": "Discover paid resources via GET /.well-known/x402. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements. The token-analysis endpoint accepts native XRP or classic XRPL issued currencies. For issued assets, provide the currency symbol/code and issuer address; CloudPayX normalizes XRPL currency encoding and returns issuer, DEX, AMM, liquidity, slippage, network-health, and PROCEED/REVIEW/ABORT execution signals."
+    "x-guidance": "Discover paid resources via GET /.well-known/x402. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements before releasing the requested intelligence. CloudPayX currently exposes transaction repair, risk assessment, ledger status, arbitrage analysis, token analysis, and stablecoin execution routing."
   },
   "servers": [
     {
@@ -18,8 +18,8 @@
   "paths": {
     "/agent/arbitrage-check": {
       "post": {
-        "summary": "XRPL arbitrage and route optimization",
-        "description": "Provides machine-consumable XRPL route and execution intelligence for autonomous trading agents.",
+        "summary": "XRPL Arbitrage Check V2",
+        "description": "Simulates an XRPL round-trip cycle using validated order-book liquidity, evaluates both execution legs, calculates final amount and gross return, and determines whether a positive executable arbitrage edge exists.",
         "requestBody": {
           "required": true,
           "content": {
@@ -34,24 +34,30 @@
                 "properties": {
                   "from": {
                     "type": "string",
-                    "example": "XRP"
+                    "example": "RLUSD"
                   },
                   "to": {
                     "type": "string",
-                    "example": "RLUSD"
+                    "example": "USDC"
                   },
                   "amount": {
                     "type": "number",
-                    "example": 100
+                    "exclusiveMinimum": 0,
+                    "example": 1000
                   }
                 }
+              },
+              "example": {
+                "from": "RLUSD",
+                "to": "USDC",
+                "amount": 1000
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Paid arbitrage optimization response"
+            "description": "Arbitrage Check V2 response including forward and reverse execution legs, round-trip economics, opportunity state, and decision signal."
           },
           "402": {
             "description": "x402 v2 payment required"
@@ -74,27 +80,46 @@
     },
     "/agent/risk-check": {
       "post": {
-        "summary": "XRPL risk assessment",
-        "description": "Low-latency risk and circuit-breaker signal for autonomous financial workflows.",
+        "summary": "XRPL Risk Check V2",
+        "description": "Evaluates transaction risk across network, asset/issuer, liquidity, and execution dimensions using validated XRPL data.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "from",
+                  "to",
+                  "amount"
+                ],
                 "properties": {
-                  "asset": {
+                  "from": {
                     "type": "string",
-                    "example": "XRP"
+                    "example": "RLUSD"
+                  },
+                  "to": {
+                    "type": "string",
+                    "example": "USDC"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "example": 1000
                   }
                 }
+              },
+              "example": {
+                "from": "RLUSD",
+                "to": "USDC",
+                "amount": 1000
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Paid risk assessment response"
+            "description": "Risk Check V2 response including composite risk score, risk dimensions, issuer analysis, liquidity, execution simulation, network state, decision signal, flags, and rule thresholds."
           },
           "402": {
             "description": "x402 v2 payment required"
@@ -117,18 +142,29 @@
     },
     "/agent/repair": {
       "post": {
-        "summary": "XRPL transaction failure diagnostics",
-        "description": "Provides machine-readable diagnostics and recovery guidance for XRPL transaction execution failures.",
+        "summary": "XRPL Transaction Repair V2",
+        "description": "Classifies XRPL engine results and returns deterministic diagnosis, probable causes, retry safety, rebuild/resign requirements, and machine-readable recovery actions.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "engine_result"
+                ],
                 "properties": {
-                  "error_code": {
+                  "engine_result": {
                     "type": "string",
-                    "example": "tecNO_LINE"
+                    "example": "tecUNFUNDED_PAYMENT"
+                  },
+                  "transaction_type": {
+                    "type": "string",
+                    "example": "Payment"
+                  },
+                  "engine_result_message": {
+                    "type": "string",
+                    "example": "Insufficient XRP balance to send."
                   }
                 }
               }
@@ -137,7 +173,7 @@
         },
         "responses": {
           "200": {
-            "description": "Paid transaction diagnostic response"
+            "description": "Repair V2 diagnosis including result classification, severity, probable causes, recommended recovery steps, retry safety, rebuild/resign requirements, decision signal, and confidence."
           },
           "402": {
             "description": "x402 v2 payment required"
@@ -160,11 +196,11 @@
     },
     "/agent/ledger-status": {
       "post": {
-        "summary": "XRPL ledger and consensus telemetry",
-        "description": "Provides machine-readable XRPL ledger and consensus telemetry.",
+        "summary": "XRPL Ledger Status V2",
+        "description": "Evaluates validated XRPL ledger freshness, fee pressure, reserve requirements, server telemetry, and transaction-submission safety.",
         "responses": {
           "200": {
-            "description": "Paid ledger telemetry response"
+            "description": "Ledger Status V2 response including validated-ledger state, fees, reserves, server telemetry, execution environment, and ALLOW/REVIEW/ABORT decision intelligence."
           },
           "402": {
             "description": "x402 v2 payment required"
@@ -211,7 +247,7 @@
     },
     "/agent/token-analysis": {
       "post": {
-        "summary": "XRPL token execution intelligence",
+        "summary": "XRPL Token Analysis V2.1",
         "description": "Analyzes native XRP or classic XRPL-issued fungible assets using validated XRPL mainnet data. For issued assets, CloudPayX inspects issuer configuration, trustlines, both sides of the XRP order book, AMM availability and reserves, visible market depth, spread, requested-trade fillability, estimated order-book slippage, and network state. Returns deterministic PROCEED, REVIEW, or ABORT signals. REVIEW is triggered by degraded execution conditions such as spread above 5% or slippage above 3%; ABORT is triggered by hard conditions including spread above 20%, slippage above 15%, global freeze, no visible liquidity, or insufficient book depth without AMM support.",
         "security": [],
         "x-payment-info": {
@@ -281,6 +317,90 @@
           },
           "402": {
             "description": "x402 v2 payment required"
+          }
+        }
+      }
+    },
+    "/agent/stablecoin-route": {
+      "post": {
+        "summary": "XRPL Stablecoin Route V1",
+        "description": "Compares executable stablecoin routing on XRPL, including direct order-book execution and XRP-bridged routing when applicable. Returns the best complete route based on actual simulated execution output.",
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.01",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "from",
+                  "to",
+                  "amount"
+                ],
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "enum": [
+                      "RLUSD",
+                      "USDC",
+                      "XRP"
+                    ],
+                    "example": "RLUSD"
+                  },
+                  "to": {
+                    "type": "string",
+                    "enum": [
+                      "RLUSD",
+                      "USDC",
+                      "XRP"
+                    ],
+                    "example": "USDC"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "example": 1000
+                  },
+                  "objective": {
+                    "type": "string",
+                    "default": "best_execution",
+                    "example": "best_execution"
+                  }
+                }
+              },
+              "example": {
+                "from": "RLUSD",
+                "to": "USDC",
+                "amount": 1000,
+                "objective": "best_execution"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stablecoin Route V1 response including evaluated routes, recommended route, expected output, execution slippage, parity execution loss, and ALLOW/REVIEW/ABORT decision."
+          },
+          "400": {
+            "description": "Invalid or unsupported route request."
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          },
+          "500": {
+            "description": "Stablecoin route analysis failed."
           }
         }
       }
