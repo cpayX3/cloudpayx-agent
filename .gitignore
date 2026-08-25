@@ -26,3 +26,6 @@ node_modules/
 src/cloudpayx_final_agent
 fix.js
 make_plugin.js
+
+# CloudPayX generated human reports
+data/reports/

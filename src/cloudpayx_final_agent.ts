@@ -26,6 +26,139 @@ const USDC_ASSET =
 const USDC_ISSUER =
   "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE"; 
 
+// ---------------------------------------------------------
+// CLOUDPAYX HUMAN REPORT LAYER V1
+// Persistent sanitized snapshots for shareable reports.
+// ---------------------------------------------------------
+
+const reportStorePath = path.join(
+  process.cwd(),
+  "data",
+  "reports"
+);
+
+fs.mkdirSync(reportStorePath, {
+  recursive: true
+});
+
+type CloudPayXReport = {
+  report_id: string;
+  service: string;
+  service_version: string;
+  network: string;
+  created_at: string;
+  visibility: "unlisted";
+  shareable: boolean;
+  data: any;
+};
+
+const createReportId = (): string => {
+  return "cpx_rpt_" + crypto.randomUUID().replace(/-/g, "");
+};
+
+const sanitizeReportData = (value: any): any => {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeReportData);
+  }
+
+  if (
+    value !== null &&
+    typeof value === "object"
+  ) {
+    const sanitized: Record<string, any> = {};
+
+    const blockedKeys = new Set([
+      "seed",
+      "private_key",
+      "privateKey",
+      "secret",
+      "payment_signature",
+      "paymentSignature",
+      "source_fingerprint",
+      "sourceFingerprint",
+      "ip",
+      "cf_connecting_ip",
+      "forwarded_for"
+    ]);
+
+    for (const [key, child] of Object.entries(value)) {
+      if (blockedKeys.has(key)) {
+        continue;
+      }
+
+      sanitized[key] = sanitizeReportData(child);
+    }
+
+    return sanitized;
+  }
+
+  return value;
+};
+
+const createReport = (
+  service: string,
+  serviceVersion: string,
+  network: string,
+  result: any
+) => {
+  const reportId = createReportId();
+
+  const report: CloudPayXReport = {
+    report_id: reportId,
+    service,
+    service_version: serviceVersion,
+    network,
+    created_at: new Date().toISOString(),
+    visibility: "unlisted",
+    shareable: true,
+    data: sanitizeReportData(result)
+  };
+
+  const reportPath = path.join(
+    reportStorePath,
+    `${reportId}.json`
+  );
+
+  fs.writeFileSync(
+    reportPath,
+    JSON.stringify(report, null, 2),
+    {
+      encoding: "utf8",
+      flag: "wx"
+    }
+  );
+
+  return {
+    id: reportId,
+    url:
+      `https://api.cloudpayxagent.xyz/reports/${reportId}`,
+    visibility: report.visibility
+  };
+};
+
+const readReport = (
+  reportId: string
+): CloudPayXReport | null => {
+  if (
+    !/^cpx_rpt_[a-f0-9]{32}$/.test(reportId)
+  ) {
+    return null;
+  }
+
+  const reportPath = path.join(
+    reportStorePath,
+    `${reportId}.json`
+  );
+
+  try {
+    return JSON.parse(
+      fs.readFileSync(reportPath, "utf8")
+    ) as CloudPayXReport;
+  } catch {
+    return null;
+  }
+};
+
 console.log("cloudpayX Agent Services API Layer initializing on port 3000.");
 console.log(`🗒️ Real-time structural traffic logging directed to: ${desktopLogPath}`);
 
@@ -56,6 +189,45 @@ Bun.serve({
       Buffer.from(`${ip}|${userAgent}`)
         .toString("base64url")
         .slice(0, 12);
+
+    // 🌐 GET /reports/:id
+    // Public read-only access to an unlisted CloudPayX report.
+    if (
+      req.method === "GET" &&
+      url.pathname.startsWith("/reports/")
+    ) {
+      const reportId =
+        url.pathname.split("/")[2] || "";
+
+      const report = readReport(reportId);
+
+      if (!report) {
+        return new Response(
+          JSON.stringify({
+            error: "Report not found."
+          }),
+          {
+            status: 404,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store"
+            }
+          }
+        );
+      }
+
+      return new Response(
+        JSON.stringify(report, null, 2),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=300",
+            "X-Robots-Tag": "noindex, nofollow"
+          }
+        }
+      );
+    }
 
     // 🌐 GET / Endpoint: API Discovery Document
     if (req.method === "GET" && url.pathname === "/") {
@@ -1160,9 +1332,7 @@ Bun.serve({
             flags.push("SEVERE_PARITY_EXECUTION_LOSS");
           }
 
-          return new Response(
-            JSON.stringify(
-              {
+          const result = {
                 service:
                   "cloudpayx_stablecoin_route_v1",
                 network: "xrpl:0",
@@ -1237,10 +1407,22 @@ Bun.serve({
                   null,
                 generated_at:
                   new Date().toISOString()
-              },
-              null,
-              2
-            ),
+              };
+
+          const report = createReport(
+            "cloudpayx_stablecoin_route_v1",
+            "1.0",
+            "xrpl:0",
+            result
+          );
+
+          const responseBody = {
+            ...result,
+            report
+          };
+
+          return new Response(
+            JSON.stringify(responseBody, null, 2),
             {
               status: 200,
               headers: {
@@ -1809,7 +1991,7 @@ Bun.serve({
             action = "REVIEW";
           }
 
-          return new Response(JSON.stringify({
+          const result = {
             success: true,
             service: "token_analysis",
             version: "2.1",
@@ -1939,12 +2121,30 @@ Bun.serve({
             ],
 
             timestamp: new Date().toISOString()
-          }), {
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "no-store"
+          };
+
+          const report = createReport(
+            "token_analysis",
+            "2.1",
+            "xrpl:0",
+            result
+          );
+
+          const responseBody = {
+            ...result,
+            report
+          };
+
+          return new Response(
+            JSON.stringify(responseBody, null, 2),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-store"
+              }
             }
-          });
+          );
 
         } catch (analysisError) {
           console.error(
@@ -2492,12 +2692,10 @@ Bun.serve({
             ...executionFlags
           ];
 
-          return new Response(
-            JSON.stringify(
-              {
-                success: true,
-                service:
-                  "cloudpayx_risk_check_v2",
+          const result = {
+            success: true,
+            service:
+              "cloudpayx_risk_check_v2",
                 version: "2.0",
                 network: "xrpl:0",
 
@@ -2638,12 +2836,24 @@ Bun.serve({
                   "XRPL validated book_offers"
                 ],
 
-                generated_at:
-                  new Date().toISOString()
-              },
-              null,
-              2
-            ),
+            generated_at:
+              new Date().toISOString()
+          };
+
+          const report = createReport(
+            "cloudpayx_risk_check_v2",
+            "2.0",
+            "xrpl:0",
+            result
+          );
+
+          const responseBody = {
+            ...result,
+            report
+          };
+
+          return new Response(
+            JSON.stringify(responseBody, null, 2),
             {
               status: 200,
               headers: {
@@ -2895,8 +3105,20 @@ Bun.serve({
             generated_at: new Date().toISOString()
           };
 
+          const report = createReport(
+            "cloudpayx_ledger_status_v2",
+            "2.0",
+            "xrpl:0",
+            result
+          );
+
+          const responseBody = {
+            ...result,
+            report
+          };
+
           return new Response(
-            JSON.stringify(result, null, 2),
+            JSON.stringify(responseBody, null, 2),
             {
               status: 200,
               headers: {
@@ -3334,9 +3556,7 @@ Bun.serve({
             reverseBook?.ledger_current_index ??
             null;
 
-          return new Response(
-            JSON.stringify(
-              {
+          const result = {
                 success: true,
                 service:
                   "cloudpayx_arbitrage_check_v2",
@@ -3458,10 +3678,22 @@ Bun.serve({
 
                 generated_at:
                   new Date().toISOString()
-              },
-              null,
-              2
-            ),
+              };
+
+          const report = createReport(
+            "cloudpayx_arbitrage_check_v2",
+            "2.0",
+            "xrpl:0",
+            result
+          );
+
+          const responseBody = {
+            ...result,
+            report
+          };
+
+          return new Response(
+            JSON.stringify(responseBody, null, 2),
             {
               status: 200,
               headers: {
@@ -3901,81 +4133,91 @@ Bun.serve({
             );
           }
 
+          const result = {
+            success: true,
+            service:
+              "cloudpayx_transaction_repair_v2",
+            version: "2.0",
+            network: "xrpl:0",
+
+            input: {
+              engine_result:
+                engineResult,
+              transaction_type:
+                transactionType,
+              engine_result_message:
+                suppliedMessage || null
+            },
+
+            classification: {
+              result_class:
+                plan.submitResultClass,
+              category:
+                plan.category,
+              severity:
+                plan.severity,
+              specialized_rule:
+                Boolean(
+                  exactRepairs[engineResult]
+                )
+            },
+
+            diagnosis: {
+              summary:
+                plan.diagnosis,
+              probable_causes:
+                plan.probableCauses
+            },
+
+            repair: {
+              recommended_action:
+                plan.recommendedAction,
+              steps:
+                plan.steps,
+              safe_to_retry:
+                plan.safeToRetry,
+              retry_unchanged:
+                plan.retryUnchanged,
+              requires_rebuild:
+                plan.requiresRebuild,
+              requires_resign:
+                plan.requiresResign
+            },
+
+            decision: {
+              signal,
+              flags
+            },
+
+            confidence: {
+              level:
+                exactRepairs[engineResult]
+                  ? "HIGH"
+                  : "MODERATE",
+              basis:
+                exactRepairs[engineResult]
+                  ? "SPECIALIZED_ENGINE_RESULT_RULE"
+                  : "XRPL_RESULT_FAMILY_CLASSIFICATION"
+            },
+
+            generated_at:
+              new Date().toISOString()
+          };
+
+          const report = createReport(
+            "cloudpayx_transaction_repair_v2",
+            "2.0",
+            "xrpl:0",
+            result
+          );
+
+          const responseBody = {
+            ...result,
+            report
+          };
+
           return new Response(
-            JSON.stringify(
-              {
-                success: true,
-                service:
-                  "cloudpayx_transaction_repair_v2",
-                version: "2.0",
-                network: "xrpl:0",
-
-                input: {
-                  engine_result:
-                    engineResult,
-                  transaction_type:
-                    transactionType,
-                  engine_result_message:
-                    suppliedMessage || null
-                },
-
-                classification: {
-                  result_class:
-                    plan.submitResultClass,
-                  category:
-                    plan.category,
-                  severity:
-                    plan.severity,
-                  specialized_rule:
-                    Boolean(
-                      exactRepairs[engineResult]
-                    )
-                },
-
-                diagnosis: {
-                  summary:
-                    plan.diagnosis,
-                  probable_causes:
-                    plan.probableCauses
-                },
-
-                repair: {
-                  recommended_action:
-                    plan.recommendedAction,
-                  steps:
-                    plan.steps,
-                  safe_to_retry:
-                    plan.safeToRetry,
-                  retry_unchanged:
-                    plan.retryUnchanged,
-                  requires_rebuild:
-                    plan.requiresRebuild,
-                  requires_resign:
-                    plan.requiresResign
-                },
-
-                decision: {
-                  signal,
-                  flags
-                },
-
-                confidence: {
-                  level:
-                    exactRepairs[engineResult]
-                      ? "HIGH"
-                      : "MODERATE",
-                  basis:
-                    exactRepairs[engineResult]
-                      ? "SPECIALIZED_ENGINE_RESULT_RULE"
-                      : "XRPL_RESULT_FAMILY_CLASSIFICATION"
-                },
-
-                generated_at:
-                  new Date().toISOString()
-              },
-              null,
-              2
-            ),
+            JSON.stringify(responseBody, null, 2),
             {
               status: 200,
               headers: {
