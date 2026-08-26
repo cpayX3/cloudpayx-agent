@@ -84,6 +84,37 @@
         "XRP",
         "ISSUED_CURRENCY"
       ]
+    },
+    "universal_repair_v3": {
+      "path": "agent/v3/repair",
+      "purpose": "capability_aware_xrpl_transaction_repair",
+      "cost_usd": 0.1,
+      "settlement_asset": "XRP",
+      "result_families": [
+        "tes",
+        "tec",
+        "tef",
+        "ter",
+        "tel",
+        "tem"
+      ],
+      "transaction_families": [
+        "PAYMENT",
+        "DEX_OFFER",
+        "TRUST_LINE",
+        "AMM",
+        "MPT",
+        "NFT",
+        "ESCROW",
+        "CHECK",
+        "PAYMENT_CHANNEL",
+        "DEPOSIT_PREAUTH",
+        "SIGNER_LIST",
+        "TICKET",
+        "CLAWBACK",
+        "ACCOUNT_CONFIGURATION",
+        "OTHER"
+      ]
     }
   },
   "settlement_primitives": {

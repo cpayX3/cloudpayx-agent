@@ -7,7 +7,7 @@
     "contact": {
       "url": "https://api.cloudpayxagent.xyz"
     },
-    "x-guidance": "Discover paid resources via GET /.well-known/x402. cloudpayX exposes legacy V2 services plus capability-aware V3 analysis, risk, arbitrage, and routing for appropriate XRPL assets. V3 supports native XRP, arbitrary issued currencies, MPT issuances, and NFTokens where the requested operation is supported by the asset type."
+    "x-guidance": "Discover paid resources via GET /.well-known/x402. cloudpayX exposes legacy V2 services plus capability-aware V3 asset analysis, risk, arbitrage, routing, and transaction repair for appropriate XRPL assets and transaction families."
   },
   "servers": [
     {
@@ -1135,6 +1135,124 @@
           },
           "502": {
             "description": "XRPL RPC request failed."
+          }
+        }
+      }
+    },
+    "/agent/v3/repair": {
+      "post": {
+        "summary": "Capability-Aware XRPL Transaction Repair V3",
+        "description": "Classifies XRPL transaction results using result-code family, exact failure semantics, transaction family, and validation finality. Supports Payments, DEX offers, trust lines, AMMs, MPTs, NFTokens, escrows, checks, payment channels, deposit preauthorization, signer lists, tickets, clawbacks, account configuration, and other XRPL transaction types. Returns deterministic retry safety, rebuild and re-sign requirements, recovery steps, and an ALLOW, REVIEW, or ABORT decision.",
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.10",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ],
+          "settlement": {
+            "network": "xrpl:0",
+            "asset": "XRP"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "engine_result"
+                ],
+                "properties": {
+                  "engine_result": {
+                    "type": "string",
+                    "description": "Text XRPL engine result returned by xrpld.",
+                    "example": "tecNO_LINE"
+                  },
+                  "engine_result_message": {
+                    "type": "string",
+                    "description": "Optional human-readable message returned with the engine result."
+                  },
+                  "transaction_type": {
+                    "type": "string",
+                    "description": "XRPL TransactionType associated with the result.",
+                    "example": "Payment"
+                  },
+                  "tx": {
+                    "type": "object",
+                    "description": "Optional transaction object. TransactionType is read from this object when transaction_type is not supplied.",
+                    "additionalProperties": true
+                  },
+                  "validated": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether the result comes from a validated ledger. Finality changes the repair and retry recommendation."
+                  }
+                }
+              },
+              "examples": {
+                "issued_currency_trust_line": {
+                  "summary": "Missing issued-currency trust line",
+                  "value": {
+                    "engine_result": "tecNO_LINE",
+                    "transaction_type": "Payment",
+                    "validated": true
+                  }
+                },
+                "amm_funding": {
+                  "summary": "Insufficient AMM funding",
+                  "value": {
+                    "engine_result": "tecAMM_UNFUNDED",
+                    "transaction_type": "AMMCreate",
+                    "validated": true
+                  }
+                },
+                "nft_transfer": {
+                  "summary": "Non-transferable NFToken",
+                  "value": {
+                    "engine_result": "tefNFTOKEN_IS_NOT_TRANSFERABLE",
+                    "transaction_type": "NFTokenAcceptOffer",
+                    "validated": true
+                  }
+                },
+                "mpt_proof": {
+                  "summary": "Invalid confidential MPT proof",
+                  "value": {
+                    "engine_result": "tecBAD_PROOF",
+                    "transaction_type": "MPTokenIssuanceSet",
+                    "validated": true
+                  }
+                },
+                "provisional_queue": {
+                  "summary": "Transaction remains queued",
+                  "value": {
+                    "engine_result": "terQUEUED",
+                    "transaction_type": "Payment",
+                    "validated": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Capability-aware XRPL repair plan with finality, retry safety, rebuild and re-sign requirements, and machine-readable decision."
+          },
+          "400": {
+            "description": "Required engine result is missing."
+          },
+          "402": {
+            "description": "x402 v2 payment required."
+          },
+          "500": {
+            "description": "Repair analysis could not be completed."
           }
         }
       }

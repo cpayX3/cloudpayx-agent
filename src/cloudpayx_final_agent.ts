@@ -7,6 +7,10 @@ import {
 } from "./cloudpayx_xrpl_asset_resolver";
 
 import {
+  repairXRPLTransactionV3
+} from "./cloudpayx_xrpl_repair_v3";
+
+import {
   analyzeXRPLAssetV3
 } from "./cloudpayx_xrpl_asset_analysis_v3";
 
@@ -278,6 +282,7 @@ Bun.serve({
         },
         endpoints: [
           { service: "transaction_repair", endpoint: "/agent/repair", service_version: "2.0", price_usd: 0.10, payment_asset: "XRP" },
+          { service: "universal_transaction_repair", endpoint: "/agent/v3/repair", service_version: "3.0", price_usd: 0.10, payment_asset: "XRP" },
           { service: "risk_check", endpoint: "/agent/risk-check", service_version: "2.0", price_usd: 0.02, payment_asset: "XRP" },
           { service: "universal_risk_check", endpoint: "/agent/v3/risk-check", service_version: "3.0", price_usd: 0.02, payment_asset: "XRP" },
           { service: "ledger_status", endpoint: "/agent/ledger-status", service_version: "2.0", price_usd: 0.005, payment_asset: "XRP" },
@@ -492,6 +497,26 @@ Bun.serve({
           ]
         },
         {
+          resource: "https://api.cloudpayxagent.xyz/agent/v3/repair",
+          type: "http",
+          method: "POST",
+          description: "Capability-aware XRPL transaction repair for Payments, DEX offers, trust lines, AMMs, MPTs, NFTokens, escrows, checks, signer lists, tickets, clawbacks and other XRPL transaction families.",
+          input: {
+            contentType: "application/json",
+            example: {
+              engine_result: "tecNO_LINE",
+              transaction_type: "Payment",
+              validated: true
+            }
+          },
+          accepts: [
+            makeRequirement(
+              Math.round(Number((0.10 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              "cpayx"
+            )
+          ]
+        },
+        {
           resource: "https://api.cloudpayxagent.xyz/agent/repair",
           type: "http",
           method: "POST",
@@ -576,7 +601,8 @@ Bun.serve({
     let requestedService = "";
     let priceUsd = 0.0;
 
-    if (url.pathname === "/agent/repair") { requestedService = "agent_repair"; priceUsd = 0.10; }
+    if (url.pathname === "/agent/v3/repair") { requestedService = "agent_repair_v3"; priceUsd = 0.10; }
+    else if (url.pathname === "/agent/repair") { requestedService = "agent_repair"; priceUsd = 0.10; }
     else if (url.pathname === "/agent/v3/risk-check") { requestedService = "agent_risk_check_v3"; priceUsd = 0.02; }
     else if (url.pathname === "/agent/risk-check") { requestedService = "agent_risk_check"; priceUsd = 0.02; }
     else if (url.pathname === "/agent/ledger-status") { requestedService = "agent_ledger_status"; priceUsd = 0.005; }
@@ -4346,6 +4372,84 @@ Bun.serve({
         }
       }
 
+
+      if (
+        url.pathname === "/agent/v3/repair"
+      ) {
+        try {
+          const result =
+            repairXRPLTransactionV3(
+              body
+            );
+
+          const report = createReport(
+            "cloudpayx_transaction_repair_v3",
+            "3.0",
+            "xrpl:0",
+            result
+          );
+
+          return new Response(
+            JSON.stringify(
+              {
+                ...result,
+                report
+              },
+              null,
+              2
+            ),
+            {
+              status: 200,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        } catch (error: any) {
+          const inputError =
+            error instanceof Error &&
+            error.message ===
+              "engine_result is required.";
+
+          console.error(
+            "repair-v3 error:",
+            error
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              service:
+                "cloudpayx_transaction_repair_v3",
+              version: "3.0",
+              network: "xrpl:0",
+              error:
+                inputError
+                  ? "INVALID_REQUEST"
+                  : "REPAIR_FAILED",
+              reason:
+                inputError
+                  ? error.message
+                  : "Transaction repair analysis could not be completed."
+            }),
+            {
+              status:
+                inputError
+                  ? 400
+                  : 500,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        }
+      }
 
       if (url.pathname === "/agent/repair") {
         try {

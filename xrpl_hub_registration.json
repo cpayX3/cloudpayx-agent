@@ -116,6 +116,17 @@
         ]
       },
       "capability": "universal_xrpl_execution_routing"
+    },
+    {
+      "path": "agent/v3/repair",
+      "pricing": {
+        "amount": "0.10",
+        "currency": "USD",
+        "settlement_assets": [
+          "XRP"
+        ]
+      },
+      "capability": "capability_aware_xrpl_transaction_repair"
     }
   ],
   "settlement": {
