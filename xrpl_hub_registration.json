@@ -10,38 +10,79 @@
     {
       "path": "agent/arbitrage-check",
       "pricing": {
-        "amount": "0.02",
+        "amount": "0.01",
         "currency": "USD",
-        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+        "settlement_assets": [
+          "XRP"
+        ]
       },
       "capability": "xrpl_arbitrage_optimization"
     },
     {
       "path": "agent/repair",
       "pricing": {
-        "amount": "0.30",
+        "amount": "0.10",
         "currency": "USD",
-        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+        "settlement_assets": [
+          "XRP"
+        ]
       },
       "capability": "x402_exception_triage"
     },
     {
       "path": "agent/risk-check",
       "pricing": {
-        "amount": "0.10",
+        "amount": "0.02",
         "currency": "USD",
-        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+        "settlement_assets": [
+          "XRP"
+        ]
       },
       "capability": "deterministic_circuit_breaker"
     },
     {
       "path": "agent/ledger-status",
       "pricing": {
-        "amount": "0.50",
+        "amount": "0.005",
         "currency": "USD",
-        "settlement_assets": ["XRP", "USDC", "RLUSD"]
+        "settlement_assets": [
+          "XRP"
+        ]
       },
-      "capability": "consensus_telemetry_stream"
+      "capability": "consensus_telemetry"
+    },
+    {
+      "path": "agent/token-analysis",
+      "pricing": {
+        "amount": "0.005",
+        "currency": "USD",
+        "settlement_assets": [
+          "XRP"
+        ]
+      },
+      "capability": "classic_xrpl_token_analysis"
+    },
+    {
+      "path": "agent/stablecoin-route",
+      "pricing": {
+        "amount": "0.01",
+        "currency": "USD",
+        "settlement_assets": [
+          "XRP"
+        ]
+      },
+      "capability": "xrpl_stablecoin_routing"
+    },
+    {
+      "path": "agent/v3/asset-analysis",
+      "pricing": {
+        "amount": "0.005",
+        "currency": "USD",
+        "settlement_assets": [
+          "XRP"
+        ]
+      },
+      "capability": "universal_xrpl_asset_analysis"
     }
   ],
   "settlement": {

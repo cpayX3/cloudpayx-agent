@@ -3,11 +3,11 @@
   "info": {
     "title": "cloudpayX Agent Services API",
     "description": "Paid XRPL machine-intelligence services protected by x402 v2 payments on XRPL mainnet.",
-    "version": "2.0",
+    "version": "3.0",
     "contact": {
       "url": "https://api.cloudpayxagent.xyz"
     },
-    "x-guidance": "Discover paid resources via GET /.well-known/x402. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements before releasing the requested intelligence. CloudPayX currently exposes transaction repair, risk assessment, ledger status, arbitrage analysis, token analysis, and stablecoin execution routing."
+    "x-guidance": "Discover paid resources via GET /.well-known/x402. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements before releasing intelligence. cloudpayX exposes transaction repair, risk assessment, ledger status, arbitrage analysis, classic token analysis, stablecoin routing, and universal V3 analysis for XRP, issued currencies, MPT issuances, and NFTokens."
   },
   "servers": [
     {
@@ -401,6 +401,179 @@
           },
           "500": {
             "description": "Stablecoin route analysis failed."
+          }
+        }
+      }
+    },
+    "/agent/v3/asset-analysis": {
+      "post": {
+        "summary": "Universal XRPL Asset Analysis V3",
+        "description": "Resolves and analyzes native XRP, arbitrary XRPL-issued currencies, Multi-Purpose Tokens (MPTs), and NFTokens using validated XRPL mainnet data. Returns the asset's canonical identity, supported analytical capabilities, and the applicable issuer, issuance, holder, ownership, or offer information.",
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.005",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "description": "Native XRP or an issued-currency symbol/code.",
+                    "example": "RLUSD"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "description": "Alias for asset when identifying an issued currency."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "description": "Issuer address required for an issued currency.",
+                    "example": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+                  },
+                  "asset_type": {
+                    "type": "string",
+                    "enum": [
+                      "MPT",
+                      "NFT"
+                    ],
+                    "description": "Explicit type for MPT or NFToken analysis."
+                  },
+                  "mpt_issuance_id": {
+                    "type": "string",
+                    "pattern": "^[A-Fa-f0-9]{48}$",
+                    "description": "48-character MPT issuance ID."
+                  },
+                  "issuance_id": {
+                    "type": "string",
+                    "pattern": "^[A-Fa-f0-9]{48}$",
+                    "description": "Alias for mpt_issuance_id."
+                  },
+                  "nftoken_id": {
+                    "type": "string",
+                    "pattern": "^[A-Fa-f0-9]{64}$",
+                    "description": "64-character NFToken ID."
+                  },
+                  "token_id": {
+                    "type": "string",
+                    "pattern": "^[A-Fa-f0-9]{64}$",
+                    "description": "Alias for nftoken_id."
+                  },
+                  "holder": {
+                    "type": "string",
+                    "description": "Optional XRPL account whose MPT holding should be retrieved."
+                  },
+                  "offer_limit": {
+                    "type": "integer",
+                    "minimum": 50,
+                    "maximum": 500,
+                    "default": 250,
+                    "description": "Maximum NFT buy and sell offers to retrieve."
+                  },
+                  "ledger_index": {
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "validated",
+                          "closed",
+                          "current"
+                        ]
+                      }
+                    ],
+                    "default": "validated"
+                  }
+                },
+                "oneOf": [
+                  {
+                    "required": [
+                      "asset"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "currency"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mpt_issuance_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "issuance_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "nftoken_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "token_id"
+                    ]
+                  }
+                ]
+              },
+              "examples": {
+                "native_xrp": {
+                  "value": {
+                    "asset": "XRP"
+                  }
+                },
+                "issued_currency": {
+                  "value": {
+                    "asset": "RLUSD",
+                    "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+                  }
+                },
+                "mpt": {
+                  "value": {
+                    "asset_type": "MPT",
+                    "mpt_issuance_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                  }
+                },
+                "nftoken": {
+                  "value": {
+                    "asset_type": "NFT",
+                    "nftoken_id": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+                    "offer_limit": 250
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paid universal XRPL asset analysis."
+          },
+          "400": {
+            "description": "Invalid asset identity or request options."
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          },
+          "502": {
+            "description": "Validated XRPL RPC data was unavailable."
           }
         }
       }
