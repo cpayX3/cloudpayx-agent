@@ -2,6 +2,19 @@ import { sleep } from "bun";
 import * as fs from "fs";
 import * as path from "path";
 
+import {
+  XRPLAssetResolutionError
+} from "./cloudpayx_xrpl_asset_resolver";
+
+import {
+  analyzeXRPLAssetV3
+} from "./cloudpayx_xrpl_asset_analysis_v3";
+
+import {
+  createXRPLHTTPClient,
+  XRPLRPCError
+} from "./cloudpayx_xrpl_rpc_client";
+
 const WALLET_ADDRESS = "rsnHPZjBSastxz1BE38WqKBR3sgpATvreL";
 const spentTransactions = new Set<string>();
 
@@ -159,11 +172,21 @@ const readReport = (
   }
 };
 
-console.log("cloudpayX Agent Services API Layer initializing on port 3000.");
+console.log("cloudpayX Agent Services API Layer initializing.");
 console.log(`🗒️ Real-time structural traffic logging directed to: ${desktopLogPath}`);
 
+const cloudpayxPort =
+  Number(
+    process.env.CLOUDPAYX_PORT ??
+    "3000"
+  );
+
+console.log(
+  `cloudpayX listening port: ${cloudpayxPort}`
+);
+
 Bun.serve({
-  port: 3000,
+  port: cloudpayxPort,
   async fetch(req) {
     const url = new URL(req.url);
     const timestamp = new Date().toISOString();
@@ -374,6 +397,25 @@ Bun.serve({
           ]
         },
         {
+          resource: "https://api.cloudpayxagent.xyz/agent/v3/asset-analysis",
+          type: "http",
+          method: "POST",
+          description: "Universal XRPL asset intelligence for native XRP, arbitrary issued currencies, MPT issuances and NFTokens.",
+          input: {
+            contentType: "application/json",
+            example: {
+              asset: "MEME",
+              issuer: "rIssuerAddress"
+            }
+          },
+          accepts: [
+            makeRequirement(
+              Math.round(Number((0.005 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              "cpayx"
+            )
+          ]
+        },
+        {
           resource: "https://api.cloudpayxagent.xyz/agent/token-analysis",
           type: "http",
           method: "POST",
@@ -419,6 +461,7 @@ Bun.serve({
     else if (url.pathname === "/agent/risk-check") { requestedService = "agent_risk_check"; priceUsd = 0.02; }
     else if (url.pathname === "/agent/ledger-status") { requestedService = "agent_ledger_status"; priceUsd = 0.005; }
     else if (url.pathname === "/agent/arbitrage-check") { requestedService = "agent_arbitrage_check"; priceUsd = 0.01; }
+    else if (url.pathname === "/agent/v3/asset-analysis") { requestedService = "agent_asset_analysis_v3"; priceUsd = 0.005; }
     else if (url.pathname === "/agent/token-analysis") { requestedService = "agent_token_analysis"; priceUsd = 0.005; }
     else if (url.pathname === "/agent/stablecoin-route") { requestedService = "agent_stablecoin_route"; priceUsd = 0.01; }
     else if (url.pathname === "/internal/token-analysis") { requestedService = "agent_token_analysis"; priceUsd = 0.005; }
@@ -1449,6 +1492,114 @@ Bun.serve({
               status: 500,
               headers: {
                 "Content-Type": "application/json"
+              }
+            }
+          );
+        }
+      }
+
+      if (
+        url.pathname === "/agent/v3/asset-analysis"
+      ) {
+        try {
+          const xrplClient =
+            createXRPLHTTPClient(
+              "https://s1.ripple.com:51234/"
+            );
+
+          const result =
+            await analyzeXRPLAssetV3(
+              xrplClient,
+              body
+            );
+
+          const report = createReport(
+            "cloudpayx_asset_analysis_v3",
+            "3.0",
+            "xrpl:0",
+            result
+          );
+
+          return new Response(
+            JSON.stringify(
+              {
+                ...result,
+                report
+              },
+              null,
+              2
+            ),
+            {
+              status: 200,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        } catch (error: any) {
+          const inputError =
+            error instanceof
+              XRPLAssetResolutionError ||
+            (
+              error instanceof Error &&
+              (
+                error.message.includes(
+                  "ledger_index"
+                ) ||
+                error.message.includes(
+                  "holder"
+                ) ||
+                error.message.includes(
+                  "offer_limit"
+                )
+              )
+            );
+
+          const rpcError =
+            error instanceof
+              XRPLRPCError;
+
+          const status =
+            inputError
+              ? 400
+              : rpcError
+                ? 502
+                : 500;
+
+          console.error(
+            "asset-analysis-v3 error:",
+            error
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              service:
+                "cloudpayx_asset_analysis_v3",
+              version: "3.0",
+              error:
+                inputError
+                  ? "INVALID_REQUEST"
+                  : rpcError
+                    ? "XRPL_RPC_ERROR"
+                    : "ANALYSIS_FAILED",
+              reason:
+                inputError
+                  ? error.message
+                  : rpcError
+                    ? error.code
+                    : "Asset analysis could not be completed."
+            }),
+            {
+              status,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
               }
             }
           );
