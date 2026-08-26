@@ -31,6 +31,12 @@ import {
   XRPLRPCError
 } from "./cloudpayx_xrpl_rpc_client";
 
+import {
+  createXRPLXRPPriceOracle,
+  usdToXrpDrops,
+  XRPLPriceOracleError
+} from "./cloudpayx_xrpl_price_oracle";
+
 const WALLET_ADDRESS = "rsnHPZjBSastxz1BE38WqKBR3sgpATvreL";
 const spentTransactions = new Set<string>();
 
@@ -41,13 +47,69 @@ const pendingInvoices = new Map<string, {
 }>();
 const desktopLogPath = "/Users/anakinskywalker/Desktop/cloudpayx_traffic_history.txt";
 const readableLogPath = "/Users/anakinskywalker/Desktop/cloudpayx_traffic_readable.log";
-const xrpPriceUSD = 2.45;
 
 const RLUSD_ASSET =
   "524C555344000000000000000000000000000000";
 
 const RLUSD_ISSUER =
   "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De";
+
+const xrplPricingClient =
+  createXRPLHTTPClient(
+    "https://s1.ripple.com:51234/"
+  );
+
+const xrpPricingOracle =
+  createXRPLXRPPriceOracle(
+    xrplPricingClient,
+    {
+      cacheMs: 30_000,
+      maxLedgerAgeSeconds: 30,
+      maxSpreadPct: 1,
+      maxAmmDeviationPct: 2
+    }
+  );
+
+function pricingUnavailableResponse(
+  error: unknown
+) {
+  const reason =
+    error instanceof
+      XRPLPriceOracleError
+      ? error.code
+      : error instanceof
+          XRPLRPCError
+        ? error.code
+        : "XRPL_PRICE_UNAVAILABLE";
+
+  console.error(
+    "XRPL pricing unavailable:",
+    error
+  );
+
+  return new Response(
+    JSON.stringify({
+      success: false,
+      service:
+        "cloudpayx_xrpl_pricing",
+      error:
+        "XRPL_PRICE_UNAVAILABLE",
+      reason,
+      retryable: true
+    }),
+    {
+      status: 503,
+      headers: {
+        "Content-Type":
+          "application/json",
+        "Cache-Control":
+          "no-store",
+        "Retry-After":
+          "10"
+      }
+    }
+  );
+}
 
 const USDC_ASSET =
   "5553444300000000000000000000000000000000";
@@ -333,6 +395,26 @@ Bun.serve({
 
     // 🌐 GET /.well-known/x402: machine-readable x402 discovery catalog
     if (req.method === "GET" && url.pathname === "/.well-known/x402") {
+      let discoveryQuote;
+
+      try {
+        discoveryQuote =
+          await xrpPricingOracle
+            .getQuote();
+      } catch (error) {
+        return pricingUnavailableResponse(
+          error
+        );
+      }
+
+      const discoveryDrops = (
+        usdAmount: number
+      ) =>
+        usdToXrpDrops(
+          usdAmount,
+          discoveryQuote.midpoint
+        );
+
       const makeRequirement = (
         amountDrops: string,
         invoicePrefix: string
@@ -388,7 +470,7 @@ Bun.serve({
           },
           accepts: [
             makeRequirement(
-              Math.round(Number((0.01 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.01),
               "cpayx"
             )
           ]
@@ -433,7 +515,7 @@ Bun.serve({
           },
           accepts: [
             makeRequirement(
-              Math.round(Number((0.01 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.01),
               "cpayx"
             )
           ]
@@ -453,7 +535,7 @@ Bun.serve({
           },
           accepts: [
             makeRequirement(
-              Math.round(Number((0.01 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.01),
               "cpayx"
             )
           ]
@@ -479,7 +561,7 @@ Bun.serve({
           },
           accepts: [
             makeRequirement(
-              Math.round(Number((0.02 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.02),
               "cpayx"
             )
           ]
@@ -491,7 +573,7 @@ Bun.serve({
           description: "Low-latency trade and liquidity risk assessment for XRPL agents.",
           accepts: [
             makeRequirement(
-              Math.round(Number((0.02 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.02),
               "cpayx"
             )
           ]
@@ -511,7 +593,7 @@ Bun.serve({
           },
           accepts: [
             makeRequirement(
-              Math.round(Number((0.10 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.10),
               "cpayx"
             )
           ]
@@ -523,7 +605,7 @@ Bun.serve({
           description: "XRPL transaction failure diagnostics and machine-readable recovery guidance.",
           accepts: [
             makeRequirement(
-              Math.round(Number((0.10 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.10),
               "cpayx"
             )
           ]
@@ -535,7 +617,7 @@ Bun.serve({
           description: "XRPL ledger and consensus telemetry for autonomous systems.",
           accepts: [
             makeRequirement(
-              Math.round(Number((0.005 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.005),
               "cpayx"
             )
           ]
@@ -554,7 +636,7 @@ Bun.serve({
           },
           accepts: [
             makeRequirement(
-              Math.round(Number((0.005 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.005),
               "cpayx"
             )
           ]
@@ -572,7 +654,7 @@ Bun.serve({
           },
           accepts: [
             makeRequirement(
-              Math.round(Number((0.005 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              discoveryDrops(0.005),
               "cpayx"
             )
           ]
@@ -667,22 +749,51 @@ Bun.serve({
 
     try {
       const body = await req.json().catch(() => ({}));
-      const targetedXRPFee = (priceUsd / xrpPriceUSD).toFixed(4);
       const paymentSignature = req.headers.get("payment-signature");
 
-      const amountXrp = targetedXRPFee;
+      let amountDrops = "0";
 
-      const amountDrops = Math.round(
-        Number(amountXrp) * 1_000_000
-      ).toString();
+      if (
+        !isStablecoinRoute &&
+        !isInternalTokenAnalysis
+      ) {
+        try {
+          const pricedPayment =
+            await xrpPricingOracle
+              .dropsForUSD(
+                priceUsd
+              );
 
-      const paymentAmount = isStablecoinRoute
-        ? priceUsd.toFixed(2)
-        : amountDrops;
+          amountDrops =
+            pricedPayment
+              .amountDrops;
+        } catch (error) {
+          return pricingUnavailableResponse(
+            error
+          );
+        }
+      }
 
-      const paymentAsset = isStablecoinRoute
-        ? RLUSD_ASSET
-        : "XRP";
+      const amountXrp =
+        isStablecoinRoute ||
+        isInternalTokenAnalysis
+          ? null
+          : (
+              Number(
+                amountDrops
+              ) /
+              1_000_000
+            ).toFixed(6);
+
+      const paymentAmount =
+        isStablecoinRoute
+          ? priceUsd.toFixed(2)
+          : amountDrops;
+
+      const paymentAsset =
+        isStablecoinRoute
+          ? RLUSD_ASSET
+          : "XRP";
 
       let paymentPayload: any = null;
       let paymentRequirements: any;
