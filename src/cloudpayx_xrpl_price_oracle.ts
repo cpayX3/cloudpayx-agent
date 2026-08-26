@@ -523,14 +523,21 @@ export function createXRPLXRPPriceOracle(
             now() +
             cacheMs;
 
+          const remainingLedgerFreshnessMs =
+            Math.max(
+              0,
+              (
+                maxLedgerAgeSeconds -
+                quote.ledgerAgeSeconds
+              ) *
+              1000
+            );
+
           const ledgerExpiry =
             Date.parse(
               quote.observedAt
             ) +
-            (
-              maxLedgerAgeSeconds *
-              1000
-            );
+            remainingLedgerFreshnessMs;
 
           cached = {
             quote,
