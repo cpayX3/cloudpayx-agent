@@ -44,6 +44,8 @@ export type XRPLAssetData =
       ledgerIndex:
         XRPLCollectionOptions["ledgerIndex"];
       issuer: Record<string, any>;
+      issuerFlags:
+        Record<string, boolean>;
     }
   | {
       kind: "MPT";
@@ -242,7 +244,10 @@ export async function collectXRPLAssetData(
       asset,
       ledgerIndex,
       issuer:
-        response.result.account_data
+        response.result.account_data,
+      issuerFlags:
+        response.result.account_flags ??
+        {}
     };
   }
 

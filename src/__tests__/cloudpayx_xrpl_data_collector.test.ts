@@ -111,7 +111,15 @@ describe(
           createMockClient([
             {
               result: {
-                account_data: accountData
+                account_data: accountData,
+                account_flags: {
+                  requireAuthorization:
+                    true,
+                  globalFreeze: false,
+                  noFreeze: true,
+                  allowTrustLineClawback:
+                    true
+                }
               }
             }
           ]);
@@ -145,6 +153,14 @@ describe(
 
         expect(result.issuer)
           .toEqual(accountData);
+
+        expect(result.issuerFlags)
+          .toEqual({
+            requireAuthorization: true,
+            globalFreeze: false,
+            noFreeze: true,
+            allowTrustLineClawback: true
+          });
 
         expect(requests).toEqual([
           {
