@@ -29,3 +29,14 @@ make_plugin.js
 
 # CloudPayX generated human reports
 data/reports/
+
+# Local cloudpayX trading experiment data
+data/perp-scans.jsonl
+
+data/xrpl-market-scans.jsonl
+
+data/xrpl-hunter-scans.jsonl
+
+# Local XRPL paper-trading state
+data/xrpl-paper-state.json
+data/xrpl-paper-trades.jsonl
