@@ -68,10 +68,10 @@
         "amount": "0.01",
         "currency": "USD",
         "settlement_assets": [
-          "XRP"
+          "RLUSD"
         ]
       },
-      "capability": "xrpl_stablecoin_routing"
+      "capability": "xrpl_stablecoin_execution_routing"
     },
     {
       "path": "agent/v3/asset-analysis",
@@ -94,6 +94,28 @@
         ]
       },
       "capability": "universal_xrpl_risk_analysis"
+    },
+    {
+      "path": "agent/v3/arbitrage-check",
+      "pricing": {
+        "amount": "0.01",
+        "currency": "USD",
+        "settlement_assets": [
+          "XRP"
+        ]
+      },
+      "capability": "universal_xrpl_arbitrage_analysis"
+    },
+    {
+      "path": "agent/v3/stablecoin-route",
+      "pricing": {
+        "amount": "0.01",
+        "currency": "USD",
+        "settlement_assets": [
+          "XRP"
+        ]
+      },
+      "capability": "universal_xrpl_execution_routing"
     }
   ],
   "settlement": {

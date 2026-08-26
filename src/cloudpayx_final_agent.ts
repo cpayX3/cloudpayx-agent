@@ -15,6 +15,14 @@ import {
 } from "./cloudpayx_xrpl_risk_service_v3";
 
 import {
+  analyzeXRPLArbitrageV3
+} from "./cloudpayx_xrpl_arbitrage_v3";
+
+import {
+  analyzeXRPLRouteV3
+} from "./cloudpayx_xrpl_route_v3";
+
+import {
   createXRPLHTTPClient,
   XRPLRPCError
 } from "./cloudpayx_xrpl_rpc_client";
@@ -262,18 +270,32 @@ Bun.serve({
     if (req.method === "GET" && url.pathname === "/") {
       return new Response(JSON.stringify({
         name: "cloudpayX Agent Services API",
-        version: "2.0",
+        version: "3.0",
         description: "Paid XRPL machine intelligence for autonomous agents, protected by x402 payments.",
+        discovery: {
+          x402: "/.well-known/x402",
+          openapi: "/openapi.json"
+        },
         endpoints: [
-          { service: "transaction_repair", endpoint: "/agent/repair", service_version: "2.0", price_usd: 0.10 },
-          { service: "risk_check", endpoint: "/agent/risk-check", service_version: "2.0", price_usd: 0.02 },
-          { service: "ledger_status", endpoint: "/agent/ledger-status", service_version: "2.0", price_usd: 0.005 },
-          { service: "arbitrage_check", endpoint: "/agent/arbitrage-check", service_version: "2.0", price_usd: 0.01 },
-          { service: "token_analysis", endpoint: "/agent/token-analysis", service_version: "2.1", price_usd: 0.005 },
-          { service: "stablecoin_route", endpoint: "/agent/stablecoin-route", service_version: "1.0", price_usd: 0.01 }
+          { service: "transaction_repair", endpoint: "/agent/repair", service_version: "2.0", price_usd: 0.10, payment_asset: "XRP" },
+          { service: "risk_check", endpoint: "/agent/risk-check", service_version: "2.0", price_usd: 0.02, payment_asset: "XRP" },
+          { service: "universal_risk_check", endpoint: "/agent/v3/risk-check", service_version: "3.0", price_usd: 0.02, payment_asset: "XRP" },
+          { service: "ledger_status", endpoint: "/agent/ledger-status", service_version: "2.0", price_usd: 0.005, payment_asset: "XRP" },
+          { service: "arbitrage_check", endpoint: "/agent/arbitrage-check", service_version: "2.0", price_usd: 0.01, payment_asset: "XRP" },
+          { service: "universal_arbitrage_check", endpoint: "/agent/v3/arbitrage-check", service_version: "3.0", price_usd: 0.01, payment_asset: "XRP" },
+          { service: "token_analysis", endpoint: "/agent/token-analysis", service_version: "2.1", price_usd: 0.005, payment_asset: "XRP" },
+          { service: "universal_asset_analysis", endpoint: "/agent/v3/asset-analysis", service_version: "3.0", price_usd: 0.005, payment_asset: "XRP" },
+          { service: "stablecoin_route", endpoint: "/agent/stablecoin-route", service_version: "1.0", price_usd: 0.01, payment_asset: "RLUSD" },
+          { service: "universal_stablecoin_route", endpoint: "/agent/v3/stablecoin-route", service_version: "3.0", price_usd: 0.01, payment_asset: "XRP" }
         ],
-        accepted_currencies: ["XRP", "USDC", "RLUSD"]
-      }), { headers: { "Content-Type": "application/json" } });
+        accepted_payment_assets: ["XRP", "RLUSD"],
+        payment_note: "RLUSD settlement is used only by the V2 stablecoin-route endpoint; other public endpoints currently settle in XRP."
+      }), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=60"
+        }
+      });
     }
 
     // 🌐 GET /openapi.json: public OpenAPI document
@@ -322,7 +344,50 @@ Bun.serve({
         }
       });
 
+      const makeRLUSDRequirement = (
+        invoicePrefix: string
+      ) => ({
+        scheme: "exact",
+        network: "xrpl:0",
+        amount: "0.01",
+        asset: RLUSD_ASSET,
+        payTo: WALLET_ADDRESS,
+        maxTimeoutSeconds: 120,
+        extra: {
+          sourceTag: 804681468,
+          invoiceIdFormat: `${invoicePrefix}_<request-id>`,
+          issuer: RLUSD_ISSUER
+        }
+      });
+
       const resources = [
+        {
+          resource: "https://api.cloudpayxagent.xyz/agent/v3/stablecoin-route",
+          type: "http",
+          method: "POST",
+          description: "Universal XRPL best-execution routing that compares direct order-book execution with XRP-bridged routing for compatible issued assets.",
+          input: {
+            contentType: "application/json",
+            example: {
+              from: {
+                asset: "RLUSD",
+                issuer: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+              },
+              to: {
+                asset: "USDC",
+                issuer: "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE"
+              },
+              amount: 100,
+              objective: "BEST_EXECUTION"
+            }
+          },
+          accepts: [
+            makeRequirement(
+              Math.round(Number((0.01 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              "cpayx"
+            )
+          ]
+        },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/stablecoin-route",
           type: "http",
@@ -335,6 +400,30 @@ Bun.serve({
               to: "USDC",
               amount: 1000,
               objective: "best_execution"
+            }
+          },
+          accepts: [
+            makeRLUSDRequirement(
+              "cpayx"
+            )
+          ]
+        },
+        {
+          resource: "https://api.cloudpayxagent.xyz/agent/v3/arbitrage-check",
+          type: "http",
+          method: "POST",
+          description: "Universal XRPL round-trip arbitrage analysis for native XRP and arbitrary compatible issued currencies.",
+          input: {
+            contentType: "application/json",
+            example: {
+              base: {
+                asset: "XRP"
+              },
+              quote: {
+                asset: "RLUSD",
+                issuer: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+              },
+              amount: 100
             }
           },
           accepts: [
@@ -491,9 +580,11 @@ Bun.serve({
     else if (url.pathname === "/agent/v3/risk-check") { requestedService = "agent_risk_check_v3"; priceUsd = 0.02; }
     else if (url.pathname === "/agent/risk-check") { requestedService = "agent_risk_check"; priceUsd = 0.02; }
     else if (url.pathname === "/agent/ledger-status") { requestedService = "agent_ledger_status"; priceUsd = 0.005; }
+    else if (url.pathname === "/agent/v3/arbitrage-check") { requestedService = "agent_arbitrage_check_v3"; priceUsd = 0.01; }
     else if (url.pathname === "/agent/arbitrage-check") { requestedService = "agent_arbitrage_check"; priceUsd = 0.01; }
     else if (url.pathname === "/agent/v3/asset-analysis") { requestedService = "agent_asset_analysis_v3"; priceUsd = 0.005; }
     else if (url.pathname === "/agent/token-analysis") { requestedService = "agent_token_analysis"; priceUsd = 0.005; }
+    else if (url.pathname === "/agent/v3/stablecoin-route") { requestedService = "agent_stablecoin_route_v3"; priceUsd = 0.01; }
     else if (url.pathname === "/agent/stablecoin-route") { requestedService = "agent_stablecoin_route"; priceUsd = 0.01; }
     else if (url.pathname === "/internal/token-analysis") { requestedService = "agent_token_analysis"; priceUsd = 0.005; }
 
@@ -916,6 +1007,117 @@ Bun.serve({
 
       } // end normal t54 payment flow
 
+
+      if (
+        url.pathname ===
+        "/agent/v3/stablecoin-route"
+      ) {
+        try {
+          const xrplClient =
+            createXRPLHTTPClient(
+              "https://xrplcluster.com/"
+            );
+
+          const result =
+            await analyzeXRPLRouteV3(
+              xrplClient,
+              body
+            );
+
+          const report = createReport(
+            "cloudpayx_stablecoin_route_v3",
+            "3.0",
+            "xrpl:0",
+            result
+          );
+
+          return new Response(
+            JSON.stringify(
+              {
+                ...result,
+                report
+              },
+              null,
+              2
+            ),
+            {
+              status: 200,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        } catch (error: any) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "";
+
+          const inputError =
+            error instanceof
+              XRPLAssetResolutionError ||
+            [
+              "asset is required",
+              "amount must be",
+              "assets must differ",
+              "objective must be"
+            ].some(
+              fragment =>
+                message.includes(
+                  fragment
+                )
+            );
+
+          const rpcError =
+            error instanceof
+              XRPLRPCError;
+
+          const status =
+            inputError
+              ? 400
+              : rpcError
+                ? 502
+                : 500;
+
+          console.error(
+            "stablecoin-route-v3 error:",
+            error
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              service:
+                "cloudpayx_stablecoin_route_v3",
+              version: "3.0",
+              error:
+                inputError
+                  ? "INVALID_REQUEST"
+                  : rpcError
+                    ? "XRPL_RPC_ERROR"
+                    : "ROUTE_ANALYSIS_FAILED",
+              reason:
+                inputError
+                  ? message
+                  : rpcError
+                    ? error.code
+                    : "Route analysis could not be completed."
+            }),
+            {
+              status,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        }
+      }
 
       if (url.pathname === "/agent/stablecoin-route") {
         const from = String(body.from || "").trim().toUpperCase();
@@ -3446,6 +3648,116 @@ Bun.serve({
               headers: {
                 "Content-Type": "application/json",
                 "Cache-Control": "no-store"
+              }
+            }
+          );
+        }
+      }
+
+      if (
+        url.pathname ===
+        "/agent/v3/arbitrage-check"
+      ) {
+        try {
+          const xrplClient =
+            createXRPLHTTPClient(
+              "https://xrplcluster.com/"
+            );
+
+          const result =
+            await analyzeXRPLArbitrageV3(
+              xrplClient,
+              body
+            );
+
+          const report = createReport(
+            "cloudpayx_arbitrage_check_v3",
+            "3.0",
+            "xrpl:0",
+            result
+          );
+
+          return new Response(
+            JSON.stringify(
+              {
+                ...result,
+                report
+              },
+              null,
+              2
+            ),
+            {
+              status: 200,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        } catch (error: any) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "";
+
+          const inputError =
+            error instanceof
+              XRPLAssetResolutionError ||
+            [
+              "asset is required",
+              "amount must be",
+              "assets must differ"
+            ].some(
+              fragment =>
+                message.includes(
+                  fragment
+                )
+            );
+
+          const rpcError =
+            error instanceof
+              XRPLRPCError;
+
+          const status =
+            inputError
+              ? 400
+              : rpcError
+                ? 502
+                : 500;
+
+          console.error(
+            "arbitrage-check-v3 error:",
+            error
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              service:
+                "cloudpayx_arbitrage_check_v3",
+              version: "3.0",
+              error:
+                inputError
+                  ? "INVALID_REQUEST"
+                  : rpcError
+                    ? "XRPL_RPC_ERROR"
+                    : "ARBITRAGE_ANALYSIS_FAILED",
+              reason:
+                inputError
+                  ? message
+                  : rpcError
+                    ? error.code
+                    : "Arbitrage analysis could not be completed."
+            }),
+            {
+              status,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
               }
             }
           );

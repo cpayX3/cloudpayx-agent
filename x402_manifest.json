@@ -35,7 +35,8 @@
     "stablecoin_route": {
       "path": "agent/stablecoin-route",
       "purpose": "xrpl_stablecoin_execution_routing",
-      "cost_usd": 0.01
+      "cost_usd": 0.01,
+      "settlement_asset": "RLUSD"
     },
     "universal_asset_analysis_v3": {
       "path": "agent/v3/asset-analysis",
@@ -63,14 +64,42 @@
         "MPT",
         "NFT"
       ]
+    },
+    "universal_arbitrage_v3": {
+      "path": "agent/v3/arbitrage-check",
+      "purpose": "universal_xrpl_arbitrage_analysis",
+      "cost_usd": 0.01,
+      "settlement_asset": "XRP",
+      "asset_types": [
+        "XRP",
+        "ISSUED_CURRENCY"
+      ]
+    },
+    "universal_stablecoin_route_v3": {
+      "path": "agent/v3/stablecoin-route",
+      "purpose": "universal_xrpl_execution_routing",
+      "cost_usd": 0.01,
+      "settlement_asset": "XRP",
+      "asset_types": [
+        "XRP",
+        "ISSUED_CURRENCY"
+      ]
     }
   },
   "settlement_primitives": {
     "supported_tokens": [
-      "XRP"
+      "XRP",
+      "RLUSD"
     ],
     "destination_account": "rsnHPZjBSastxz1BE38WqKBR3sgpATvreL",
     "verification_method": "on_chain_tx_hash_lookup",
-    "network": "xrpl:0"
+    "network": "xrpl:0",
+    "endpoint_exceptions": {
+      "agent/stablecoin-route": {
+        "asset": "RLUSD",
+        "currency": "524C555344000000000000000000000000000000",
+        "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+      }
+    }
   }
 }

@@ -7,7 +7,7 @@
     "contact": {
       "url": "https://api.cloudpayxagent.xyz"
     },
-    "x-guidance": "Discover paid resources via GET /.well-known/x402. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements. cloudpayX exposes transaction repair, ledger status, arbitrage analysis, classic token analysis, stablecoin routing, universal V3 asset analysis, and capability-aware V3 risk analysis for XRP, issued currencies, MPT issuances, and NFTokens."
+    "x-guidance": "Discover paid resources via GET /.well-known/x402. cloudpayX exposes legacy V2 services plus capability-aware V3 analysis, risk, arbitrage, and routing for appropriate XRPL assets. V3 supports native XRP, arbitrary issued currencies, MPT issuances, and NFTokens where the requested operation is supported by the asset type."
   },
   "servers": [
     {
@@ -336,7 +336,13 @@
             {
               "x402": {}
             }
-          ]
+          ],
+          "settlement": {
+            "network": "xrpl:0",
+            "asset": "RLUSD",
+            "currency": "524C555344000000000000000000000000000000",
+            "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+          }
         },
         "requestBody": {
           "required": true,
@@ -756,6 +762,379 @@
           },
           "502": {
             "description": "Validated XRPL RPC data unavailable."
+          }
+        }
+      }
+    },
+    "/agent/v3/arbitrage-check": {
+      "post": {
+        "summary": "Universal XRPL Arbitrage Analysis V3",
+        "description": "Evaluates an executable round trip between native XRP and compatible XRPL-issued fungible currencies. Returns depth, estimated execution, slippage, gross edge, and an ALLOW, REVIEW, or ABORT decision. MPT and NFToken assets return a capability-aware not-applicable result because they are not currently supported by XRPL order books.",
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.01",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ],
+          "settlement": {
+            "network": "xrpl:0",
+            "asset": "XRP"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "base",
+                  "quote",
+                  "amount"
+                ],
+                "properties": {
+                  "base": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "XRP",
+                              "ISSUED_CURRENCY",
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string"
+                          },
+                          "nftoken_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "quote": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "XRP",
+                              "ISSUED_CURRENCY",
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string"
+                          },
+                          "nftoken_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "amount_asset": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "XRP",
+                              "ISSUED_CURRENCY",
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string"
+                          },
+                          "nftoken_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "example": {
+                "base": {
+                  "asset": "XRP"
+                },
+                "quote": {
+                  "asset": "RLUSD",
+                  "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+                },
+                "amount": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Universal XRPL arbitrage analysis."
+          },
+          "400": {
+            "description": "Invalid or unsupported request."
+          },
+          "402": {
+            "description": "x402 v2 payment required."
+          },
+          "502": {
+            "description": "XRPL RPC request failed."
+          }
+        }
+      }
+    },
+    "/agent/v3/stablecoin-route": {
+      "post": {
+        "summary": "Universal XRPL Execution Routing V3",
+        "description": "Compares direct and XRP-bridged execution routes between compatible XRPL-issued fungible currencies. Returns fillability, expected output, estimated slippage, the recommended route, and an ALLOW, REVIEW, or ABORT decision.",
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.01",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ],
+          "settlement": {
+            "network": "xrpl:0",
+            "asset": "XRP"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "from",
+                  "to",
+                  "amount"
+                ],
+                "properties": {
+                  "from": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "XRP",
+                              "ISSUED_CURRENCY",
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string"
+                          },
+                          "nftoken_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "to": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "XRP",
+                              "ISSUED_CURRENCY",
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string"
+                          },
+                          "nftoken_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "amount_asset": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "XRP",
+                              "ISSUED_CURRENCY",
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string"
+                          },
+                          "nftoken_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "objective": {
+                    "type": "string",
+                    "enum": [
+                      "BEST_EXECUTION"
+                    ],
+                    "default": "BEST_EXECUTION"
+                  }
+                }
+              },
+              "example": {
+                "from": {
+                  "asset": "RLUSD",
+                  "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+                },
+                "to": {
+                  "asset": "USDC",
+                  "issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE"
+                },
+                "amount": 100,
+                "objective": "BEST_EXECUTION"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Universal XRPL route analysis."
+          },
+          "400": {
+            "description": "Invalid or unsupported request."
+          },
+          "402": {
+            "description": "x402 v2 payment required."
+          },
+          "502": {
+            "description": "XRPL RPC request failed."
           }
         }
       }
