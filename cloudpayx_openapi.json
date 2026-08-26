@@ -7,7 +7,7 @@
     "contact": {
       "url": "https://api.cloudpayxagent.xyz"
     },
-    "x-guidance": "Discover paid resources via GET /.well-known/x402. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements before releasing intelligence. cloudpayX exposes transaction repair, risk assessment, ledger status, arbitrage analysis, classic token analysis, stablecoin routing, and universal V3 analysis for XRP, issued currencies, MPT issuances, and NFTokens."
+    "x-guidance": "Discover paid resources via GET /.well-known/x402. Paid POST endpoints return HTTP 402 with x402 v2 XRPL payment requirements. cloudpayX exposes transaction repair, ledger status, arbitrage analysis, classic token analysis, stablecoin routing, universal V3 asset analysis, and capability-aware V3 risk analysis for XRP, issued currencies, MPT issuances, and NFTokens."
   },
   "servers": [
     {
@@ -574,6 +574,188 @@
           },
           "502": {
             "description": "Validated XRPL RPC data was unavailable."
+          }
+        }
+      }
+    },
+    "/agent/v3/risk-check": {
+      "post": {
+        "summary": "Universal XRPL Risk Check V3",
+        "description": "Capability-aware XRPL risk analysis for native XRP, arbitrary issued currencies, MPTs, and NFTokens. TRADE intent uses validated network, issuer, order-book, liquidity, and execution data when a compatible market exists. TRANSFER and OWNERSHIP intents avoid inapplicable fungible-market assumptions.",
+        "security": [],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "amount": "0.02",
+            "currency": "USD"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "intent",
+                  "from",
+                  "amount"
+                ],
+                "properties": {
+                  "intent": {
+                    "type": "string",
+                    "enum": [
+                      "TRADE",
+                      "TRANSFER",
+                      "OWNERSHIP"
+                    ]
+                  },
+                  "from": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string",
+                            "pattern": "^[A-Fa-f0-9]{48}$"
+                          },
+                          "nftoken_id": {
+                            "type": "string",
+                            "pattern": "^[A-Fa-f0-9]{64}$"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "to": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Native XRP or an issued-currency symbol."
+                      },
+                      {
+                        "type": "object",
+                        "description": "Universal XRPL asset reference.",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "asset_type": {
+                            "type": "string",
+                            "enum": [
+                              "MPT",
+                              "NFT"
+                            ]
+                          },
+                          "mpt_issuance_id": {
+                            "type": "string",
+                            "pattern": "^[A-Fa-f0-9]{48}$"
+                          },
+                          "nftoken_id": {
+                            "type": "string",
+                            "pattern": "^[A-Fa-f0-9]{64}$"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "from_issuer": {
+                    "type": "string",
+                    "description": "Compatibility field when from is supplied as a symbol string."
+                  },
+                  "to_issuer": {
+                    "type": "string",
+                    "description": "Compatibility field when to is supplied as a symbol string."
+                  },
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  }
+                }
+              },
+              "examples": {
+                "issued_currency_trade": {
+                  "value": {
+                    "intent": "TRADE",
+                    "from": {
+                      "asset": "XRP"
+                    },
+                    "to": {
+                      "asset": "RLUSD",
+                      "issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+                    },
+                    "amount": 100
+                  }
+                },
+                "mpt_transfer": {
+                  "value": {
+                    "intent": "TRANSFER",
+                    "from": {
+                      "asset_type": "MPT",
+                      "mpt_issuance_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    },
+                    "amount": 10
+                  }
+                },
+                "nft_ownership": {
+                  "value": {
+                    "intent": "OWNERSHIP",
+                    "from": {
+                      "asset_type": "NFT",
+                      "nftoken_id": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+                    },
+                    "amount": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paid capability-aware XRPL risk assessment."
+          },
+          "400": {
+            "description": "Invalid asset or risk request."
+          },
+          "402": {
+            "description": "x402 v2 payment required"
+          },
+          "502": {
+            "description": "Validated XRPL RPC data unavailable."
           }
         }
       }

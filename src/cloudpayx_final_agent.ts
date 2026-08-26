@@ -11,6 +11,10 @@ import {
 } from "./cloudpayx_xrpl_asset_analysis_v3";
 
 import {
+  assessXRPLRiskV3
+} from "./cloudpayx_xrpl_risk_service_v3";
+
+import {
   createXRPLHTTPClient,
   XRPLRPCError
 } from "./cloudpayx_xrpl_rpc_client";
@@ -361,6 +365,32 @@ Bun.serve({
           ]
         },
         {
+          resource: "https://api.cloudpayxagent.xyz/agent/v3/risk-check",
+          type: "http",
+          method: "POST",
+          description: "Capability-aware XRPL risk analysis for arbitrary issued currencies, MPTs, NFTokens and native XRP across trade, transfer and ownership intents.",
+          input: {
+            contentType: "application/json",
+            example: {
+              intent: "TRADE",
+              from: {
+                asset: "XRP"
+              },
+              to: {
+                asset: "RLUSD",
+                issuer: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
+              },
+              amount: 100
+            }
+          },
+          accepts: [
+            makeRequirement(
+              Math.round(Number((0.02 / xrpPriceUSD).toFixed(4)) * 1_000_000).toString(),
+              "cpayx"
+            )
+          ]
+        },
+        {
           resource: "https://api.cloudpayxagent.xyz/agent/risk-check",
           type: "http",
           method: "POST",
@@ -404,8 +434,8 @@ Bun.serve({
           input: {
             contentType: "application/json",
             example: {
-              asset: "MEME",
-              issuer: "rIssuerAddress"
+              asset: "RLUSD",
+              issuer: "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De"
             }
           },
           accepts: [
@@ -458,6 +488,7 @@ Bun.serve({
     let priceUsd = 0.0;
 
     if (url.pathname === "/agent/repair") { requestedService = "agent_repair"; priceUsd = 0.10; }
+    else if (url.pathname === "/agent/v3/risk-check") { requestedService = "agent_risk_check_v3"; priceUsd = 0.02; }
     else if (url.pathname === "/agent/risk-check") { requestedService = "agent_risk_check"; priceUsd = 0.02; }
     else if (url.pathname === "/agent/ledger-status") { requestedService = "agent_ledger_status"; priceUsd = 0.005; }
     else if (url.pathname === "/agent/arbitrage-check") { requestedService = "agent_arbitrage_check"; priceUsd = 0.01; }
@@ -2321,6 +2352,117 @@ Bun.serve({
       }
 
 
+
+      if (
+        url.pathname === "/agent/v3/risk-check"
+      ) {
+        try {
+          const xrplClient =
+            createXRPLHTTPClient(
+              "https://xrplcluster.com/"
+            );
+
+          const result =
+            await assessXRPLRiskV3(
+              xrplClient,
+              body
+            );
+
+          const report = createReport(
+            "cloudpayx_risk_check_v3",
+            "3.0",
+            "xrpl:0",
+            result
+          );
+
+          return new Response(
+            JSON.stringify(
+              {
+                ...result,
+                report
+              },
+              null,
+              2
+            ),
+            {
+              status: 200,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        } catch (error: any) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "";
+
+          const inputError =
+            error instanceof
+              XRPLAssetResolutionError ||
+            [
+              "intent must be",
+              "amount must be",
+              "asset is required",
+              "to asset is required",
+              "assets must differ"
+            ].some(
+              fragment =>
+                message.includes(
+                  fragment
+                )
+            );
+
+          const rpcError =
+            error instanceof
+              XRPLRPCError;
+
+          const status =
+            inputError
+              ? 400
+              : rpcError
+                ? 502
+                : 500;
+
+          console.error(
+            "risk-check-v3 error:",
+            error
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              service:
+                "cloudpayx_risk_check_v3",
+              version: "3.0",
+              error:
+                inputError
+                  ? "INVALID_REQUEST"
+                  : rpcError
+                    ? "XRPL_RPC_ERROR"
+                    : "RISK_ANALYSIS_FAILED",
+              reason:
+                inputError
+                  ? message
+                  : rpcError
+                    ? error.code
+                    : "Risk analysis could not be completed."
+            }),
+            {
+              status,
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "Cache-Control":
+                  "no-store"
+              }
+            }
+          );
+        }
+      }
 
       if (url.pathname === "/agent/risk-check") {
         try {

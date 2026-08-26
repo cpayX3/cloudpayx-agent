@@ -47,6 +47,22 @@
         "MPT",
         "NFT"
       ]
+    },
+    "universal_risk_v3": {
+      "path": "agent/v3/risk-check",
+      "purpose": "capability_aware_universal_xrpl_risk",
+      "cost_usd": 0.02,
+      "intents": [
+        "TRADE",
+        "TRANSFER",
+        "OWNERSHIP"
+      ],
+      "asset_types": [
+        "XRP",
+        "ISSUED_CURRENCY",
+        "MPT",
+        "NFT"
+      ]
     }
   },
   "settlement_primitives": {

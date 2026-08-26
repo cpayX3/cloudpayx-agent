@@ -83,6 +83,17 @@
         ]
       },
       "capability": "universal_xrpl_asset_analysis"
+    },
+    {
+      "path": "agent/v3/risk-check",
+      "pricing": {
+        "amount": "0.02",
+        "currency": "USD",
+        "settlement_assets": [
+          "XRP"
+        ]
+      },
+      "capability": "universal_xrpl_risk_analysis"
     }
   ],
   "settlement": {
