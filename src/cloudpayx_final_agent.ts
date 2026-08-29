@@ -1,3 +1,8 @@
+import { handleCloudPayXA2A } from "./cloudpayx_a2a_server";
+import {
+  getHunterEndpointIntelligence
+} from "./cloudpayx_hunter_intelligence";
+
 import { sleep } from "bun";
 import * as fs from "fs";
 import * as path from "path";
@@ -291,6 +296,19 @@ Bun.serve({
         .toString("base64url")
         .slice(0, 12);
 
+    // Public A2A discovery and message receiver.
+    // This layer cannot sign transactions or initiate payments.
+    const a2aResponse =
+      await handleCloudPayXA2A(
+        req,
+        url,
+        uniqueRequestId,
+      );
+
+    if (a2aResponse) {
+      return a2aResponse;
+    }
+
     // 🌐 GET /reports/:id
     // Public read-only access to an unlisted CloudPayX report.
     if (
@@ -335,7 +353,7 @@ Bun.serve({
     // 🌐 GET / Endpoint: API Discovery Document
     if (req.method === "GET" && url.pathname === "/") {
       return new Response(JSON.stringify({
-        name: "cloudpayX Agent Services API",
+        name: "cloudpayX",
         version: "3.0",
         description: "Paid XRPL machine intelligence for autonomous agents, protected by x402 payments.",
         discovery: {
@@ -450,6 +468,7 @@ Bun.serve({
       const resources = [
         {
           resource: "https://api.cloudpayxagent.xyz/agent/v3/stablecoin-route",
+          name: "Universal XRPL Best-Execution Route",
           type: "http",
           method: "POST",
           description: "Universal XRPL best-execution routing that compares direct order-book execution with XRP-bridged routing for compatible issued assets.",
@@ -477,6 +496,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/stablecoin-route",
+          name: "XRPL Stablecoin Route — RLUSD Rail",
           type: "http",
           method: "POST",
           description: "XRPL stablecoin execution routing that compares direct order-book execution with XRP-bridged routing and returns the best executable route.",
@@ -497,6 +517,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/v3/arbitrage-check",
+          name: "Universal XRPL Arbitrage Preflight",
           type: "http",
           method: "POST",
           description: "Universal XRPL round-trip arbitrage analysis for native XRP and arbitrary compatible issued currencies.",
@@ -522,6 +543,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/arbitrage-check",
+          name: "XRPL Arbitrage Preflight",
           type: "http",
           method: "POST",
           description: "XRPL arbitrage and route optimization for autonomous trading agents.",
@@ -542,6 +564,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/v3/risk-check",
+          name: "Universal XRPL Risk Preflight",
           type: "http",
           method: "POST",
           description: "Capability-aware XRPL risk analysis for arbitrary issued currencies, MPTs, NFTokens and native XRP across trade, transfer and ownership intents.",
@@ -568,6 +591,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/risk-check",
+          name: "XRPL Risk Preflight",
           type: "http",
           method: "POST",
           description: "Low-latency trade and liquidity risk assessment for XRPL agents.",
@@ -580,6 +604,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/v3/repair",
+          name: "Universal XRPL Transaction Repair",
           type: "http",
           method: "POST",
           description: "Capability-aware XRPL transaction repair for Payments, DEX offers, trust lines, AMMs, MPTs, NFTokens, escrows, checks, signer lists, tickets, clawbacks and other XRPL transaction families.",
@@ -600,6 +625,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/repair",
+          name: "XRPL Transaction Repair",
           type: "http",
           method: "POST",
           description: "XRPL transaction failure diagnostics and machine-readable recovery guidance.",
@@ -612,6 +638,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/ledger-status",
+          name: "XRPL Ledger Readiness",
           type: "http",
           method: "POST",
           description: "XRPL ledger and consensus telemetry for autonomous systems.",
@@ -624,6 +651,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/v3/asset-analysis",
+          name: "Universal XRPL Asset Analysis",
           type: "http",
           method: "POST",
           description: "Universal XRPL asset intelligence for native XRP, arbitrary issued currencies, MPT issuances and NFTokens.",
@@ -643,6 +671,7 @@ Bun.serve({
         },
         {
           resource: "https://api.cloudpayxagent.xyz/agent/token-analysis",
+          name: "XRPL Token Execution Analysis",
           type: "http",
           method: "POST",
           description: "XRPL token execution intelligence: issuer risk, DEX and AMM liquidity, market depth, spread, trade-size slippage, network conditions, and PROCEED/REVIEW/ABORT signals.",
@@ -665,7 +694,7 @@ Bun.serve({
         JSON.stringify({
           version: 1,
           x402Version: 2,
-          name: "cloudpayX Agent Services",
+          name: "cloudpayX",
           description: "Machine-to-machine XRPL services protected by x402 payments.",
           resources
         }),
@@ -1172,6 +1201,10 @@ Bun.serve({
             JSON.stringify(
               {
                 ...result,
+                hunter_intelligence:
+                  getHunterEndpointIntelligence(
+                    "stablecoin_route"
+                  ),
                 report
               },
               null,
@@ -1894,6 +1927,10 @@ Bun.serve({
             JSON.stringify(
               {
                 ...result,
+                hunter_intelligence:
+                  getHunterEndpointIntelligence(
+                    "asset_analysis"
+                  ),
                 report
               },
               null,
@@ -2718,6 +2755,10 @@ Bun.serve({
             JSON.stringify(
               {
                 ...result,
+                hunter_intelligence:
+                  getHunterEndpointIntelligence(
+                    "risk"
+                  ),
                 report
               },
               null,
@@ -3818,6 +3859,10 @@ Bun.serve({
             JSON.stringify(
               {
                 ...result,
+                hunter_intelligence:
+                  getHunterEndpointIntelligence(
+                    "arbitrage"
+                  ),
                 report
               },
               null,
